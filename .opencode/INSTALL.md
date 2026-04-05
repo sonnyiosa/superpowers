@@ -35,6 +35,18 @@ rm -rf ~/.config/opencode/superpowers
 
 Then follow the installation steps above.
 
+### 5. Optional: Customize Subagent Models
+
+Edit `~/.config/opencode/superpowers.jsonc` to change the models used by Superpowers subagents:
+
+```json
+{
+  "agent": {
+    "implementer-sp": { "model": "anthropic/claude-haiku-4-5" }
+  }
+}
+```
+
 ## Usage
 
 Use OpenCode's native `skill` tool:
