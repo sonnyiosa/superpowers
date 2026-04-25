@@ -55,6 +55,7 @@ let _bootstrapCache = undefined; // undefined = not yet loaded, null = file miss
 export const SuperpowersPlugin = async ({ client, directory }) => {
   const homeDir = os.homedir();
   const superpowersSkillsDir = path.resolve(__dirname, '../../skills');
+  // const superpowersSkillsDir = path.resolve(__dirname, './superpowers/skills');
   const envConfigDir = normalizePath(process.env.OPENCODE_CONFIG_DIR, homeDir);
   const configDir = envConfigDir || path.join(homeDir, '.config/opencode');
 
