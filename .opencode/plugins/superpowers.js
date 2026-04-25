@@ -69,10 +69,11 @@ const deepMerge = (base, override) => {
 };
 
 // Agent prompt definitions for subagent-driven development workflow.
-// These are the system prompts that each agent receives.
+// These contain the system prompts and agent metadata (description, temperature).
 // The controller (orchestrator) still provides task-specific context via @mention.
 const AGENT_PROMPTS = {
-  'implementer-sp': `You are an implementation agent for the superpowers subagent-driven development workflow.
+  'implementer-sp': {
+    prompt: `You are an implementation agent for the superpowers subagent-driven development workflow.
 
 Your job is to implement a task from a plan. The controller will provide:
 - Full task description (from the plan)
@@ -113,8 +114,10 @@ When done, report:
 - Files changed
 - Self-review findings (if any)
 - Any issues or concerns`,
+  },
 
-  'spec-reviewer-sp': `You are a spec compliance reviewer for the superpowers subagent-driven development workflow.
+  'spec-reviewer-sp': {
+    prompt: `You are a spec compliance reviewer for the superpowers subagent-driven development workflow.
 
 Your job is to verify that an implementation matches its specification — nothing more, nothing less.
 
@@ -130,6 +133,8 @@ The implementer's report may be incomplete, inaccurate, or optimistic. You MUST 
 
 **DO:** Read the actual code they wrote. Compare actual implementation to requirements line by line. Check for missing pieces. Look for extra features they didn't mention.
 
+**Verify by reading code, not by trusting report.**
+
 ## Your Job
 
 Read the implementation code and verify:
@@ -140,14 +145,14 @@ Read the implementation code and verify:
 
 **Misunderstandings:** Did they interpret requirements differently than intended? Did they solve the wrong problem?
 
-**Verify by reading code, not by trusting report.**
-
 ## Report Format
 
 - ✅ Spec compliant (if everything matches after code inspection)
 - ❌ Issues found: [list specifically what's missing or extra, with file:line references]`,
+  },
 
-  'code-reviewer-sp': `You are a senior code reviewer for the superpowers subagent-driven development workflow.
+  'code-reviewer-sp': {
+    prompt: `You are a senior code reviewer for the superpowers subagent-driven development workflow.
 
 You review code changes for production readiness. Only dispatched after spec compliance passes.
 
@@ -191,28 +196,24 @@ The controller will provide:
 - Be specific (file:line, not vague)
 - Explain WHY issues matter
 - Acknowledge strengths
-- Give clear verdict`
+- Give clear verdict`,
+  },
 };
 
-// Default agent configurations
+// Default agent configurations (tools, permissions, mode).
+// Description, prompt, and temperature come from AGENT_PROMPTS.
 const AGENT_DEFAULTS = {
   'implementer-sp': {
-    description: 'Superpowers: implements tasks from plan following TDD. Writes code, tests, commits.',
-    // model: 'anthropic/claude-sonnet-4-6',
     mode: 'subagent',
     tools: { bash: true, read: true, write: true, edit: true, glob: true, grep: true, list: true, todoread: true, todowrite: true },
     permission: { edit: 'allow', bash: { '*': 'allow' } }
   },
   'spec-reviewer-sp': {
-    description: 'Superpowers: reviews implementation against spec. Verifies completeness, catches missing/extra work.',
-    // model: 'anthropic/claude-sonnet-4-6',
     mode: 'subagent',
     tools: { read: true, glob: true, grep: true, list: true, bash: true },
     permission: { bash: { '*': 'allow' } }
   },
   'code-reviewer-sp': {
-    description: 'Superpowers: deep code review — architecture, quality, security, maintainability.',
-    // model: 'anthropic/claude-opus-4-6',
     mode: 'subagent',
     tools: { read: true, glob: true, grep: true, list: true, bash: true },
     permission: { bash: { '*': 'allow' } }
@@ -224,13 +225,13 @@ const DEFAULT_SUPERPOWERS_CONFIG = `{
   // Edit models here instead of creating agent entries manually in opencode.json.
   "agent": {
     "implementer-sp": {
-      "model": "anthropic/claude-sonnet-4-6"
+      // "model": "anthropic/claude-sonnet-4-6"
     },
     "spec-reviewer-sp": {
-      "model": "anthropic/claude-sonnet-4-6"
+      // "model": "anthropic/claude-sonnet-4-6"
     },
     "code-reviewer-sp": {
-      "model": "anthropic/claude-opus-4-6"
+      // "model": "anthropic/claude-opus-4-6"
     }
   }
 }
@@ -239,6 +240,7 @@ const DEFAULT_SUPERPOWERS_CONFIG = `{
 export const SuperpowersPlugin = async ({ client, directory }) => {
   const homeDir = os.homedir();
   const superpowersSkillsDir = path.resolve(__dirname, '../../skills');
+  // const superpowersSkillsDir = path.resolve(__dirname, './superpowers/skills');
   const envConfigDir = normalizePath(process.env.OPENCODE_CONFIG_DIR, homeDir);
   const configDir = envConfigDir || path.join(homeDir, '.config/opencode');
   const superpowersConfigPath = path.join(configDir, 'superpowers.jsonc');
@@ -308,10 +310,12 @@ ${toolMapping}
       const agents = mergedConfig.agent || {};
 
       for (const [name, defaults] of Object.entries(AGENT_DEFAULTS)) {
-        // Plugin defaults provide prompts/tools; superpowers.jsonc can override models and other fields.
+        // Plugin defaults provide infrastructure (tools, mode, permissions);
+        // AGENT_PROMPTS provides prompt, description, temperature;
+        // superpowers.jsonc can override any field.
         agents[name] = {
           ...defaults,
-          prompt: AGENT_PROMPTS[name],
+          ...AGENT_PROMPTS[name],
           ...(agents[name] || {})
         };
       }
