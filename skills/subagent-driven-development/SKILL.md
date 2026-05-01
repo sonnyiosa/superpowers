@@ -328,6 +328,23 @@ Task reviewer: Spec ✅. Task quality: Approved.
 [Dispatch final code-reviewer]
 Final reviewer: All requirements met, ready to merge
 
+[Compile final report with all issues and decisions from implementers and reviewers]
+
+Final Report:
+- Task 1 (Hook installation):
+  - Implementer question: System or user level? → Decision: User level
+  - Implementer self-review: Added --force flag (originally missing)
+  - Spec review: ✅ No issues
+  - Code review: ✅ No issues
+- Task 2 (Recovery modes):
+  - Spec review: ❌ Missing progress reporting, extra --json flag
+  - Code review: ❌ Magic number 100
+  - Fixes applied: Added PROGRESS_INTERVAL constant, removed --json flag, added progress reporting per 100 items
+  - Spec re-review: ✅ Fixed
+  - Code re-review: ✅ Fixed
+- Task 3-5: (similar per-task entries)
+- Final code review: ✅ All requirements met, ready to merge
+
 Done!
 ```
 
@@ -356,6 +373,7 @@ Done!
 - Review loops ensure fixes actually work
 - Spec compliance prevents over/under-building
 - Code quality ensures implementation is well-built
+- Final report captures all issues and decisions from implementers and reviewers for complete traceability
 
 **Cost:**
 - More subagent invocations (implementer + reviewer per task)
@@ -388,15 +406,17 @@ Done!
   the ledger (and `git log`) after any compaction or resume
 
 **If subagent asks questions:**
-- Answer clearly and completely
+- Escalate to the human with recommended approaches
 - Provide additional context if needed
 - Don't rush them into implementation
 
 **If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
+- Escalate to the human with recommended approaches
+- Provide human selected decision to Implementer (same subagent) fixes them
+- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
+- Repeat until both reviewers approve
 - Don't skip the re-review
+- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
 
 **If subagent fails task:**
 - Dispatch fix subagent with specific instructions

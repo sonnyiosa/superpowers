@@ -62,6 +62,8 @@ digraph brainstorming {
 
 ## The Process
 
+- Invoke the behavior-guidelines skill to enforce safe, consistent behavior and prevent common pitfalls.
+
 **Understanding the idea:**
 
 - Check out the current project state first (files, docs, recent commits)
