@@ -5,11 +5,11 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review.
+Execute plan by dispatching fresh subagent per task, with parallel two-stage review after each: dispatch spec compliance reviewer and code quality reviewer simultaneously.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
-**Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
+**Core principle:** Fresh subagent per task + parallel two-stage review (spec and quality simultaneously) = high quality, fast iteration
 
 ## When to Use
 
@@ -34,7 +34,7 @@ digraph when_to_use {
 **vs. Executing Plans (parallel session):**
 - Same session (no context switch)
 - Fresh subagent per task (no context pollution)
-- Two-stage review after each task: spec compliance first, then code quality
+- Parallel two-stage review after each task: spec compliance and code quality dispatched simultaneously
 - Faster iteration (no human-in-loop between tasks)
 
 ## The Process
@@ -49,12 +49,14 @@ digraph process {
         "Implementer asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch @spec-reviewer-sp with requirements and report" [shape=box];
+        "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
         "Implementer fixes spec gaps" [shape=box];
-        "Dispatch @code-reviewer-sp with SHAs and description" [shape=box];
+        "Re-dispatch spec reviewer" [shape=box];
         "Code reviewer approves?" [shape=diamond];
         "Implementer fixes quality issues" [shape=box];
+        "Re-dispatch code reviewer" [shape=box];
+        "Both approved?" [shape=diamond];
         "Mark task complete in TodoWrite" [shape=box];
     }
 
@@ -67,19 +69,23 @@ digraph process {
     "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch @implementer-sp with task text and context";
     "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
-    "Implementer implements, tests, commits, self-reviews" -> "Dispatch @spec-reviewer-sp with requirements and report";
-    "Dispatch @spec-reviewer-sp with requirements and report" -> "Spec reviewer confirms code matches spec?";
+    "Implementer implements, tests, commits, self-reviews" -> "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel";
+    "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" -> "Spec reviewer confirms code matches spec?";
+    "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" -> "Code reviewer approves?";
     "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
-    "Implementer fixes spec gaps" -> "Dispatch @spec-reviewer-sp with requirements and report" [label="re-review"];
-    "Spec reviewer confirms code matches spec?" -> "Dispatch @code-reviewer-sp with SHAs and description" [label="yes"];
-    "Dispatch @code-reviewer-sp with SHAs and description" -> "Code reviewer approves?";
+    "Implementer fixes spec gaps" -> "Re-dispatch spec reviewer";
+    "Re-dispatch spec reviewer" -> "Spec reviewer confirms code matches spec?";
     "Code reviewer approves?" -> "Implementer fixes quality issues" [label="no"];
-    "Implementer fixes quality issues" -> "Dispatch @code-reviewer-sp with SHAs and description" [label="re-review"];
-    "Code reviewer approves?" -> "Mark task complete in TodoWrite" [label="yes"];
+    "Implementer fixes quality issues" -> "Re-dispatch code reviewer";
+    "Re-dispatch code reviewer" -> "Code reviewer approves?";
+    "Spec reviewer confirms code matches spec?" -> "Both approved?" [label="yes"];
+    "Code reviewer approves?" -> "Both approved?" [label="yes"];
+    "Both approved?" -> "Mark task complete in TodoWrite" [label="yes"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch @implementer-sp with task text and context" [label="yes"];
     "More tasks remain?" -> "Dispatch @code-reviewer-sp for entire implementation" [label="no"];
-    "Dispatch @code-reviewer-sp for entire implementation";
+    "Dispatch @code-reviewer-sp for entire implementation" -> "Compile final report with all issues and decisions";
+    "Compile final report with all issues and decisions";
 }
 ```
 
@@ -159,10 +165,8 @@ Implementer: "Got it. Implementing now..."
   - Self-review: Found I missed --force flag, added it
   - Committed
 
-[Dispatch @spec-reviewer-sp]
+[Dispatch @spec-reviewer-sp and @code-reviewer-sp in parallel]
 Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
-
-[Get git SHAs, dispatch @code-reviewer-sp]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
 [Mark Task 1 complete]
@@ -179,24 +183,17 @@ Implementer:
   - Self-review: All good
   - Committed
 
-[Dispatch @spec-reviewer-sp]
+[Dispatch @spec-reviewer-sp and @code-reviewer-sp in parallel]
 Spec reviewer: ❌ Issues:
   - Missing: Progress reporting (spec says "report every 100 items")
   - Extra: Added --json flag (not requested)
-
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
-
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
-
-[Dispatch @code-reviewer-sp]
 Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
 
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
+[Implementer fixes all issues]
+Implementer: Removed --json flag, added progress reporting, extracted PROGRESS_INTERVAL constant
 
-[Code reviewer reviews again]
+[Re-dispatch both reviewers in parallel]
+Spec reviewer: ✅ Spec compliant now
 Code reviewer: ✅ Approved
 
 [Mark Task 2 complete]
@@ -206,6 +203,23 @@ Code reviewer: ✅ Approved
 [After all tasks]
 [Dispatch @code-reviewer-sp for entire implementation]
 Final reviewer: All requirements met, ready to merge
+
+[Compile final report with all issues and decisions from implementers and reviewers]
+
+Final Report:
+- Task 1 (Hook installation):
+  - Implementer question: System or user level? → Decision: User level
+  - Implementer self-review: Added --force flag (originally missing)
+  - Spec review: ✅ No issues
+  - Code review: ✅ No issues
+- Task 2 (Recovery modes):
+  - Spec review: ❌ Missing progress reporting, extra --json flag
+  - Code review: ❌ Magic number 100
+  - Fixes applied: Added PROGRESS_INTERVAL constant, removed --json flag, added progress reporting per 100 items
+  - Spec re-review: ✅ Fixed
+  - Code re-review: ✅ Fixed
+- Task 3-5: (similar per-task entries)
+- Final code review: ✅ All requirements met, ready to merge
 
 Done!
 ```
@@ -231,13 +245,15 @@ Done!
 
 **Quality gates:**
 - Self-review catches issues before handoff
-- Two-stage review: spec compliance, then code quality
+- Parallel two-stage review: spec compliance and code quality reviewed simultaneously
 - Review loops ensure fixes actually work
 - Spec compliance prevents over/under-building
 - Code quality ensures implementation is well-built
+- Final report captures all issues and decisions from implementers and reviewers for complete traceability
 
 **Cost:**
 - More subagent invocations (implementer + 2 reviewers per task)
+- Reviewers dispatched in parallel (faster wall-clock time, same total invocations)
 - Controller does more prep work (extracting all tasks upfront)
 - Review loops add iterations
 - But catches issues early (cheaper than debugging later)
@@ -255,19 +271,21 @@ Done!
 - Accept "close enough" on spec compliance (spec reviewer found issues = not done)
 - Skip review loops (reviewer found issues = implementer fixes = review again)
 - Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
 - Move to next task while either review has open issues
+- Re-dispatch only one reviewer when fixes substantially change the implementation (both need fresh eyes)
 
 **If subagent asks questions:**
-- Answer clearly and completely
+- Escalate to the human with recommended approaches
 - Provide additional context if needed
 - Don't rush them into implementation
 
 **If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
+- Escalate to the human with recommended approaches
+- Provide human selected decision to Implementer (same subagent) fixes them
+- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
+- Repeat until both reviewers approve
 - Don't skip the re-review
+- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
 
 **If subagent fails task:**
 - Dispatch fix subagent with specific instructions
@@ -279,6 +297,9 @@ Done!
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Code review template for reviewer subagents
+
+** Subagent @implementer-sp
+- **superpowers:behavior-guidelines** - REQUIRED
 
 **Subagents should use:**
 - **superpowers:test-driven-development** - Subagents follow TDD for each task
