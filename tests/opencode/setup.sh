@@ -23,10 +23,9 @@ SUPERPOWERS_DIR="$OPENCODE_CONFIG_DIR/superpowers"
 SUPERPOWERS_SKILLS_DIR="$SUPERPOWERS_DIR/skills"
 SUPERPOWERS_PLUGIN_FILE="$SUPERPOWERS_DIR/.opencode/plugins/superpowers.js"
 
-# Install skills and agents
+# Install skills
 mkdir -p "$SUPERPOWERS_DIR"
 cp -r "$REPO_ROOT/skills" "$SUPERPOWERS_DIR/"
-cp -r "$REPO_ROOT/agents" "$SUPERPOWERS_DIR/"
 
 # Install plugin
 mkdir -p "$(dirname "$SUPERPOWERS_PLUGIN_FILE")"

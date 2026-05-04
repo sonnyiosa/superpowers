@@ -60,16 +60,8 @@ else
     exit 1
 fi
 
-# Test 5: Verify AGENT_PROMPTS was removed and bootstrap does not reference a wrong skills path
-echo "Test 5a: Checking AGENT_PROMPTS constant was removed..."
-if grep -q 'const AGENT_PROMPTS' "$SUPERPOWERS_PLUGIN_FILE"; then
-    echo "  [FAIL] Plugin still has AGENT_PROMPTS constant"
-    exit 1
-else
-    echo "  [PASS] AGENT_PROMPTS constant removed"
-fi
-
-echo "Test 5b: Checking bootstrap does not advertise a wrong skills path..."
+# Test 5: Verify bootstrap text does not reference a hardcoded skills path
+echo "Test 5: Checking bootstrap does not advertise a wrong skills path..."
 if grep -q 'configDir}/skills/superpowers/' "$SUPERPOWERS_PLUGIN_FILE"; then
     echo "  [FAIL] Plugin still references old configDir skills path"
     exit 1
@@ -186,71 +178,6 @@ else
     echo "  Output: $node_output"
     exit 1
 fi
-
-# Test 8: Verify agents are loaded from agents/ directory
-echo "Test 8: Checking agents loaded from files..."
-
-agent_count=$(find "$SUPERPOWERS_DIR/agents" -name "*.md" | wc -l)
-if [ "$agent_count" -ge 4 ]; then
-    echo "  [PASS] Found $agent_count agent files in agents/ directory"
-else
-    echo "  [FAIL] Expected at least 4 agent files, found $agent_count"
-    exit 1
-fi
-
-# Verify specific agent files exist
-for agent in "explore.md" "implementer-sp.md" "spec-reviewer-sp.md" "code-reviewer-sp.md"; do
-    if [ -f "$SUPERPOWERS_DIR/agents/$agent" ]; then
-        echo "  [PASS] Agent file $agent exists"
-    else
-        echo "  [FAIL] Agent file $agent not found"
-        exit 1
-    fi
-done
-
-# Verify existing user-facing agent still exists
-if [ -f "$SUPERPOWERS_DIR/agents/code-reviewer.md" ]; then
-    echo "  [PASS] User-facing code-reviewer.md still exists"
-else
-    echo "  [FAIL] code-reviewer.md was removed"
-    exit 1
-fi
-
-# Verify the plugin loads agents from files
-node_output=$(node --input-type=module <<'EOF'
-import path from 'path';
-import { pathToFileURL } from 'url';
-
-const pluginPath = path.join(process.env.HOME, '.config/opencode/superpowers/.opencode/plugins/superpowers.js');
-const { SuperpowersPlugin } = await import(pathToFileURL(pluginPath).href);
-const plugin = await SuperpowersPlugin({ client: {}, directory: process.cwd() });
-
-const testConfig = {};
-await plugin.config(testConfig);
-
-console.log(JSON.stringify({
-  hasExplore: Boolean(testConfig.agent?.explore),
-  hasImplementer: Boolean(testConfig.agent?.['implementer-sp']),
-  hasSpecReviewer: Boolean(testConfig.agent?.['spec-reviewer-sp']),
-  hasCodeReviewer: Boolean(testConfig.agent?.['code-reviewer-sp']),
-  exploreHasPrompt: Boolean(testConfig.agent?.explore?.prompt),
-  implementerHasPrompt: Boolean(testConfig.agent?.['implementer-sp']?.prompt),
-  specReviewerHasPrompt: Boolean(testConfig.agent?.['spec-reviewer-sp']?.prompt),
-  codeReviewerHasPrompt: Boolean(testConfig.agent?.['code-reviewer-sp']?.prompt),
-  exploreHasPermission: Boolean(testConfig.agent?.explore?.permission),
-}));
-EOF
-)
-
-for key in "hasExplore" "hasImplementer" "hasSpecReviewer" "hasCodeReviewer" "exploreHasPrompt" "implementerHasPrompt" "specReviewerHasPrompt" "codeReviewerHasPrompt" "exploreHasPermission"; do
-    if echo "$node_output" | grep -q "\"$key\":true"; then
-        echo "  [PASS] $key is true"
-    else
-        echo "  [FAIL] $key is false"
-        echo "  Output: $node_output"
-        exit 1
-    fi
-done
 
 echo ""
 echo "=== All plugin loading tests passed ==="

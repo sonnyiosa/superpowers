@@ -12,73 +12,25 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Simple YAML frontmatter parser (avoids dependency on skills-core for bootstrap).
-// Handles flat k:v, nested objects via indentation, literal block scalars (|),
-// type coercion (number, boolean, null), and quoted keys.
+// Simple frontmatter extraction (avoid dependency on skills-core for bootstrap)
 const extractAndStripFrontmatter = (content) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) return { frontmatter: {}, content };
 
-  const lines = match[1].split('\n');
+  const frontmatterStr = match[1];
   const body = match[2];
+  const frontmatter = {};
 
-  const parseValue = (raw) => {
-    const v = raw.trim();
-    if (v === 'true') return true;
-    if (v === 'false') return false;
-    if (v === 'null') return null;
-    if (/^\d+(\.\d+)?$/.test(v)) return Number(v);
-    return v.replace(/^["']|["']$/g, '');
-  };
-
-  const parseBlock = (start, parentIndent) => {
-    const obj = {};
-    let i = start;
-    while (i < lines.length) {
-      const line = lines[i];
-      if (!line.trim() || line.trim().startsWith('#')) { i++; continue; }
-
-      const indent = line.search(/\S/);
-      if (indent <= parentIndent) break;
-
-      const colon = line.indexOf(':', indent);
-      if (colon === -1) { i++; continue; }
-
-      const key = line.slice(indent, colon).trim().replace(/^["']|["']$/g, '');
-      const rest = line.slice(colon + 1);
-
-      if (rest.trim() === '|') {
-        const blockLines = [];
-        i++;
-        while (i < lines.length) {
-          const nl = lines[i];
-          const ni = nl.search(/\S/);
-          if (ni <= indent && nl.trim()) break;
-          blockLines.push(nl.slice(indent + 2) || '');
-          i++;
-        }
-        const lastNonEmpty = blockLines.length - 1;
-        let end = lastNonEmpty;
-        while (end >= 0 && blockLines[end] === '') end--;
-        obj[key] = blockLines.slice(0, end + 1).join('\n');
-      } else if (!rest.trim()) {
-        i++;
-        const { result, nextIdx } = parseBlockInner(i, indent);
-        obj[key] = result;
-        i = nextIdx;
-      } else {
-        obj[key] = parseValue(rest);
-        i++;
-      }
+  for (const line of frontmatterStr.split('\n')) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const key = line.slice(0, colonIdx).trim();
+      const value = line.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
+      frontmatter[key] = value;
     }
-    return { result: obj, nextIdx: i };
-  };
+  }
 
-  // Wrapper because parseBlock is recursive and we need to separate start from parentIndent
-  const parseBlockInner = (start, parentIndent) => parseBlock(start, parentIndent);
-
-  const { result } = parseBlock(0, -1);
-  return { frontmatter: result, content: body };
+  return { frontmatter, content: body };
 };
 
 // Normalize a path: trim whitespace, expand ~, resolve to absolute
@@ -116,29 +68,204 @@ const deepMerge = (base, override) => {
   return merged;
 };
 
-// Read agent definitions from markdown files in the agents directory.
-// Each file follows the OpenCode agent markdown format:
-//   - filename (without .md) = agent name
-//   - YAML frontmatter = metadata (description, mode, temperature, permission, etc.)
-//   - body = system prompt
-const loadAgentsFromDirectory = (agentsDir) => {
-  const agents = {};
-  if (!fs.existsSync(agentsDir)) return agents;
+// Agent prompt definitions for subagent-driven development workflow.
+// These contain the system prompts and agent metadata (description, temperature).
+// The controller (orchestrator) still provides task-specific context via @mention.
+const AGENT_PROMPTS = {
+  "explore": {
+    prompt: `You are Explorer - a fast codebase navigation specialist for the superpowers subagent-driven development workflow.
 
-  const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
-  for (const file of files) {
-    const filePath = path.join(agentsDir, file);
-    const content = fs.readFileSync(filePath, 'utf8');
-    const { frontmatter, content: body } = extractAndStripFrontmatter(content);
-    if (!frontmatter.description) continue;
+**Role**: Quick contextual grep for codebases. Answer "Where is X?", "Find Y", "Which file has Z".
 
-    const name = path.basename(file, '.md');
-    agents[name] = {
-      ...frontmatter,
-      prompt: body.trim(),
-    };
+**When to use which tools**:
+- **Text/regex patterns** (strings, comments, variable names): grep
+- **Structural patterns** (function shapes, class structures): ast_grep_search
+- **File discovery** (find by name/extension): glob
+
+**Behavior**:
+- Be fast and thorough
+- Fire multiple searches in parallel if needed
+- Return file paths with relevant snippets
+
+**Output Format**:
+<results>
+<files>
+- /path/to/file.ts:42 - Brief description of what's there
+</files>
+<answer>
+Concise answer to the question
+</answer>
+</results>
+
+**Constraints**:
+- READ-ONLY: Search and report, don't modify
+- Be exhaustive but concise
+- Include line numbers when relevant`,
+    description:
+      "Fast codebase search and pattern matching. Use for finding files, locating code patterns, and answering 'where is X?' questions.",
+    temperature: 0.1,
+  },
+
+  "implementer-sp": {
+    prompt: `You are an implementation agent for the superpowers subagent-driven development workflow.
+
+Your job is to implement a task from a plan. The controller will provide:
+- Full task description (from the plan)
+- Context (where this fits, dependencies, architecture)
+
+## Before You Begin
+
+If you have questions about the requirements, approach, dependencies, or anything unclear — ask them now. Raise concerns before starting work.
+
+## Your Job
+
+Once you're clear on requirements:
+1. Implement exactly what the task specifies
+2. Write tests (following TDD if task says to)
+3. Verify implementation works
+4. Commit your work
+5. Self-review (see below)
+6. Report back
+
+**While you work:** If you encounter something unexpected or unclear, ask questions. Don't guess or make assumptions.
+
+## Before Reporting Back: Self-Review
+
+Review your work with fresh eyes:
+
+**Completeness:** Did I implement everything in the spec? Miss any requirements? Edge cases?
+**Quality:** Is this my best work? Are names clear? Is code clean and maintainable?
+**Discipline:** Did I avoid overbuilding (YAGNI)? Only build what was requested? Follow existing patterns?
+**Testing:** Do tests verify behavior (not mocks)? Did I follow TDD if required? Are tests comprehensive?
+
+If you find issues during self-review, fix them before reporting.
+
+## Report Format
+
+When done, report:
+- What you implemented
+- What you tested and test results
+- Files changed
+- Self-review findings (if any)
+- Any issues or concerns`,
+  },
+
+  "spec-reviewer-sp": {
+    prompt: `You are a spec compliance reviewer for the superpowers subagent-driven development workflow.
+
+Your job is to verify that an implementation matches its specification — nothing more, nothing less.
+
+The controller will provide:
+- Full task requirements (from the plan)
+- Implementer's report of what they claim they built
+
+## CRITICAL: Do Not Trust the Report
+
+The implementer's report may be incomplete, inaccurate, or optimistic. You MUST verify everything independently.
+
+**DO NOT:** Take their word for what they implemented. Trust their claims about completeness. Accept their interpretation of requirements.
+
+**DO:** Read the actual code they wrote. Compare actual implementation to requirements line by line. Check for missing pieces. Look for extra features they didn't mention.
+
+**Verify by reading code, not by trusting report.**
+
+## Your Job
+
+Read the implementation code and verify:
+
+**Missing requirements:** Did they implement everything requested? Are there requirements they skipped? Did they claim something works but didn't actually implement it?
+
+**Extra/unneeded work:** Did they build things that weren't requested? Did they over-engineer? Did they add "nice to haves" not in spec?
+
+**Misunderstandings:** Did they interpret requirements differently than intended? Did they solve the wrong problem?
+
+## Report Format
+
+- ✅ Spec compliant (if everything matches after code inspection)
+- ❌ Issues found: [list specifically what's missing or extra, with file:line references]`,
+  },
+
+  "code-reviewer-sp": {
+    prompt: `You are a senior code reviewer for the superpowers subagent-driven development workflow.
+
+You review code changes for production readiness. Only dispatched after spec compliance passes.
+
+The controller will provide:
+- What was implemented (from implementer's report)
+- Plan/requirements reference
+- Git SHA range to review
+
+## Review Checklist
+
+**Code Quality:** Clean separation of concerns? Proper error handling? Type safety? DRY? Edge cases handled?
+**Architecture:** Sound design decisions? Scalability? Performance implications? Security concerns?
+**Testing:** Tests actually test logic (not mocks)? Edge cases covered? Integration tests where needed? All tests passing?
+**Requirements:** All plan requirements met? No scope creep? Breaking changes documented?
+**Production Readiness:** Migration strategy? Backward compatibility? No obvious bugs?
+
+## Output Format
+
+### Strengths
+[What's well done? Be specific with file:line references.]
+
+### Issues
+
+#### Critical (Must Fix)
+[Bugs, security issues, data loss risks]
+
+#### Important (Should Fix)
+[Architecture problems, missing features, poor error handling, test gaps]
+
+#### Minor (Nice to Have)
+[Code style, optimization, documentation]
+
+**For each issue:** file:line reference, what's wrong, why it matters, how to fix.
+
+### Assessment
+**Ready to merge?** [Yes/No/With fixes]
+**Reasoning:** [1-2 sentences]
+
+## Rules
+- Categorize by actual severity (not everything is Critical)
+- Be specific (file:line, not vague)
+- Explain WHY issues matter
+- Acknowledge strengths
+- Give clear verdict`,
+  },
+};
+
+// Default agent configurations (tools, permissions, mode).
+// Description, prompt, and temperature come from AGENT_PROMPTS.
+const AGENT_DEFAULTS = {
+  'explore': {
+    mode: 'subagent',
+    permission: {
+      "*": "deny",
+      grep: "allow",
+      glob: "allow",
+      list: "allow",
+      bash: "allow",
+      webfetch: "allow",
+      websearch: "allow",
+      codesearch: "allow",
+      read: "allow",
+    }
+  },
+  'implementer-sp': {
+    mode: 'subagent',
+    tools: { bash: true, read: true, write: true, edit: true, glob: true, grep: true, list: true, todoread: true, todowrite: true },
+    permission: { edit: 'allow', bash: { '*': 'allow' } }
+  },
+  'spec-reviewer-sp': {
+    mode: 'subagent',
+    tools: { read: true, glob: true, grep: true, list: true, bash: true },
+    permission: { bash: { '*': 'allow' } }
+  },
+  'code-reviewer-sp': {
+    mode: 'subagent',
+    tools: { read: true, glob: true, grep: true, list: true, bash: true },
+    permission: { bash: { '*': 'allow' } }
   }
-  return agents;
 };
 
 const DEFAULT_SUPERPOWERS_CONFIG = `{
@@ -229,20 +356,15 @@ ${toolMapping}
       const superpowersConfig = loadSuperpowersConfig();
       const mergedConfig = deepMerge(config, superpowersConfig);
       const agents = mergedConfig.agent || {};
-      const userOverrides = superpowersConfig.agent || {};
 
-      // Load agents from agents/ directory. Format follows OpenCode agent markdown standard:
-      // frontmatter (description, mode, permission, etc.) + body (system prompt).
-      // User overrides from superpowers.jsonc are merged on top so they always win.
-      const agentsDir = path.resolve(__dirname, '../../agents');
-      // const agentsDir = path.resolve(__dirname, './superpowers/agents');
-
-      const fileAgents = loadAgentsFromDirectory(agentsDir);
-
-      for (const [name, fileConfig] of Object.entries(fileAgents)) {
+      for (const [name, defaults] of Object.entries(AGENT_DEFAULTS)) {
+        // Plugin defaults provide infrastructure (tools, mode, permissions);
+        // AGENT_PROMPTS provides prompt, description, temperature;
+        // superpowers.jsonc can override any field.
         agents[name] = {
-          ...fileConfig,
-          ...(userOverrides[name] || {}),
+          ...defaults,
+          ...AGENT_PROMPTS[name],
+          ...(agents[name] || {})
         };
       }
 
