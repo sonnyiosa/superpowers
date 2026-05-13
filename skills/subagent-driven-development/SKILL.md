@@ -325,7 +325,7 @@ Task reviewer: Spec ✅. Task quality: Approved.
 ...
 
 [After all tasks]
-[Dispatch final code-reviewer]
+[Dispatch @code-reviewer for entire implementation]
 Final reviewer: All requirements met, ready to merge
 
 [Compile final report with all issues and decisions from implementers and reviewers]
@@ -405,29 +405,18 @@ Done!
 - Re-dispatch a task the progress ledger already marks complete — check
   the ledger (and `git log`) after any compaction or resume
 
-**If subagent asks questions:**
-- Escalate to the human with recommended approaches
-- Provide additional context if needed
-- Don't rush them into implementation
-
-**If reviewer finds issues:**
-- Escalate to the human with recommended approaches
-- Provide human selected decision to Implementer (same subagent) fixes them
-- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
-- Repeat until both reviewers approve
-- Don't skip the re-review
-- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
-
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
-
 ## Integration
 
 **Required workflow skills:**
 - **superpowers:using-git-worktrees** - Ensures isolated workspace (creates one or verifies existing)
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Code review template for reviewer subagents
+
+** Subagent @implementer-sp should use:
+- **superpowers:behavior-guidelines** - REQUIRED
+
+** Subagent @code-reviewer should use:
+- **superpowers:code-review-expert** - REQUIRED
 
 **Subagents should use:**
 - **superpowers:test-driven-development** - Subagents follow TDD for each task
