@@ -136,7 +136,7 @@ Wait for the user's response. If they request changes, make them and re-run the 
 
 - Invoke the writing-plans skill to create a detailed implementation plan
 - Do NOT invoke any other skill. writing-plans is the next step.
-- **Model routing (OpenCode):** The superpowers plugin registers dedicated agents (`@implementer-sp`, `@spec-reviewer-sp`, `@code-reviewer-sp`) with appropriate model tiers. Brainstorming and planning run on the current (typically stronger) model; implementation is automatically dispatched to cost-effective models via subagent-driven-development. No manual model switching needed.
+- **Model routing (OpenCode):** The superpowers plugin registers dedicated agents (`@implementer-sp`, `@spec-reviewer-sp`, `@code-reviewer`) with appropriate model tiers. Brainstorming and planning run on the current (typically stronger) model; implementation is automatically dispatched to cost-effective models via subagent-driven-development. No manual model switching needed.
 
 ## Key Principles
 

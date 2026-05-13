@@ -153,7 +153,6 @@ When running in [OpenCode](https://opencode.ai), the superpowers plugin register
 |-------|------|---------------|
 | `@implementer-sp` | Implements tasks from plan, writes code, tests, commits | Sonnet |
 | `@spec-reviewer-sp` | Verifies implementation matches spec, catches missing/extra work | Sonnet |
-| `@code-reviewer-sp` | Deep code review — architecture, quality, security | Opus |
 
 This means brainstorming and planning run on whatever model you choose (typically a stronger one), while implementation is automatically dispatched to cost-effective models. No manual model switching needed.
 

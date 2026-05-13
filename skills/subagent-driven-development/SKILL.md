@@ -49,7 +49,7 @@ digraph process {
         "Implementer asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" [shape=box];
+        "Dispatch @spec-reviewer-sp AND @code-reviewer in parallel" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
         "Implementer fixes spec gaps" [shape=box];
         "Re-dispatch spec reviewer" [shape=box];
@@ -62,16 +62,16 @@ digraph process {
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch @code-reviewer-sp for entire implementation" [shape=box];
+    "Dispatch @code-reviewer for entire implementation" [shape=box];
 
     "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch @implementer-sp with task text and context";
     "Dispatch @implementer-sp with task text and context" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch @implementer-sp with task text and context";
     "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
-    "Implementer implements, tests, commits, self-reviews" -> "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel";
-    "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" -> "Spec reviewer confirms code matches spec?";
-    "Dispatch @spec-reviewer-sp AND @code-reviewer-sp in parallel" -> "Code reviewer approves?";
+    "Implementer implements, tests, commits, self-reviews" -> "Dispatch @spec-reviewer-sp AND @code-reviewer in parallel";
+    "Dispatch @spec-reviewer-sp AND @code-reviewer in parallel" -> "Spec reviewer confirms code matches spec?";
+    "Dispatch @spec-reviewer-sp AND @code-reviewer in parallel" -> "Code reviewer approves?";
     "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
     "Implementer fixes spec gaps" -> "Re-dispatch spec reviewer";
     "Re-dispatch spec reviewer" -> "Spec reviewer confirms code matches spec?";
@@ -83,11 +83,29 @@ digraph process {
     "Both approved?" -> "Mark task complete in TodoWrite" [label="yes"];
     "Mark task complete in TodoWrite" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch @implementer-sp with task text and context" [label="yes"];
-    "More tasks remain?" -> "Dispatch @code-reviewer-sp for entire implementation" [label="no"];
-    "Dispatch @code-reviewer-sp for entire implementation" -> "Compile final report with all issues and decisions";
+    "More tasks remain?" -> "Dispatch @code-reviewer for entire implementation" [label="no"];
+    "Dispatch @code-reviewer for entire implementation" -> "Compile final report with all issues and decisions";
     "Compile final report with all issues and decisions";
 }
 ```
+
+**If subagent asks questions:**
+- Escalate to the human with recommended approaches
+- Provide additional context if needed
+- Don't rush them into implementation
+
+**If reviewer finds issues:**
+- Escalate to the human with recommended approaches
+- Provide human selected decision to Implementer (same subagent) fixes them
+- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
+- Repeat until both reviewers approve
+- Don't skip the re-review
+- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
+
+**If subagent fails task:**
+- Dispatch fix subagent with specific instructions
+- Don't try to fix manually (context pollution)
+
 
 ## Model Selection
 
@@ -130,7 +148,7 @@ When running in OpenCode, use the dedicated agents registered by the superpowers
 |-------|------|
 | `@implementer-sp` | Writes code, tests |
 | `@spec-reviewer-sp` | Verifies implementation matches spec |
-| `@code-reviewer-sp` | Deep code review |
+| `@code-reviewer` | Deep code review |
 
 
 ## Prompt Templates (Claude Code / Codex fallback)
@@ -138,7 +156,6 @@ When running in OpenCode, use the dedicated agents registered by the superpowers
 If named agents are not available (e.g. in Claude Code or Codex), use the prompt templates:
 - `./implementer-prompt.md` - Dispatch implementer subagent
 - `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
-- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
 
 ## Example Workflow
 
@@ -165,7 +182,7 @@ Implementer: "Got it. Implementing now..."
   - Self-review: Found I missed --force flag, added it
   - Committed
 
-[Dispatch @spec-reviewer-sp and @code-reviewer-sp in parallel]
+[Dispatch @spec-reviewer-sp and @code-reviewer in parallel]
 Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
@@ -183,7 +200,7 @@ Implementer:
   - Self-review: All good
   - Committed
 
-[Dispatch @spec-reviewer-sp and @code-reviewer-sp in parallel]
+[Dispatch @spec-reviewer-sp and @code-reviewer in parallel]
 Spec reviewer: ❌ Issues:
   - Missing: Progress reporting (spec says "report every 100 items")
   - Extra: Added --json flag (not requested)
@@ -201,7 +218,7 @@ Code reviewer: ✅ Approved
 ...
 
 [After all tasks]
-[Dispatch @code-reviewer-sp for entire implementation]
+[Dispatch @code-reviewer for entire implementation]
 Final reviewer: All requirements met, ready to merge
 
 [Compile final report with all issues and decisions from implementers and reviewers]
@@ -274,23 +291,6 @@ Done!
 - Move to next task while either review has open issues
 - Re-dispatch only one reviewer when fixes substantially change the implementation (both need fresh eyes)
 
-**If subagent asks questions:**
-- Escalate to the human with recommended approaches
-- Provide additional context if needed
-- Don't rush them into implementation
-
-**If reviewer finds issues:**
-- Escalate to the human with recommended approaches
-- Provide human selected decision to Implementer (same subagent) fixes them
-- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
-- Repeat until both reviewers approve
-- Don't skip the re-review
-- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
-
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
-
 ## Integration
 
 **Required workflow skills:**
@@ -298,8 +298,11 @@ Done!
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Code review template for reviewer subagents
 
-** Subagent @implementer-sp
+** Subagent @implementer-sp should use:
 - **superpowers:behavior-guidelines** - REQUIRED
+
+** Subagent @code-reviewer should use:
+- **superpowers:code-review-expert** - REQUIRED
 
 **Subagents should use:**
 - **superpowers:test-driven-development** - Subagents follow TDD for each task

@@ -66,9 +66,3 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Consent-Before-Implementation
-
-Before writing any code, making any file changes, executing commands, or taking any irreversible action, you must first present your intended plan and explicitly ask for my approval. Wait for a clear "yes", "go ahead", "proceed", or equivalent confirmation before starting. Do not interpret enthusiasm, agreement with the plan, or silence as consent to proceed.
-
-This rule is waived only if I have explicitly said something like "go ahead and implement", "just do it", "proceed without asking", or similar in this conversation. A prior waiver does not carry over to new tasks or new conversations.
-
