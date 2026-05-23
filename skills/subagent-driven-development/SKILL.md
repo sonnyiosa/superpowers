@@ -91,12 +91,12 @@ digraph process {
 }
 ```
 
-**If subagent asks questions:**
+**If implementer found something unexpected while implementing:**
 - Escalate to the human with recommended approaches
 - Provide additional context if needed
-- Don't rush them into implementation
+- Don't rush into implementation
 
-**If reviewer finds issues:**
+**If reviewers finds issues:**
 - Escalate to the human with recommended approaches
 - Provide human selected decision to Implementer (same subagent) fixes them
 - Re-dispatch the reviewer that found issues (or both if fixes are substantial)
@@ -153,11 +153,12 @@ When running in OpenCode, use the dedicated agents registered by the superpowers
 | `@code-reviewer` | Deep code review |
 
 
-## Prompt Templates (Claude Code / Codex fallback)
+### Claude Code / Codex fallback
 
 If named agents are not available (e.g. in Claude Code or Codex), use the prompt templates:
 - `./implementer-prompt.md` - Dispatch implementer subagent
 - `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
+- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
 
 ## Example Workflow
 
