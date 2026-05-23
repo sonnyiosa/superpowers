@@ -81,6 +81,19 @@ digraph process {
 }
 ```
 
+**If implementer found something unexpected while implementing:**
+- Escalate to the human with recommended approaches
+- Provide additional context if needed
+- Don't rush into implementation
+
+**If reviewers finds issues:**
+- Escalate to the human with recommended approaches
+- Provide human selected decision to Implementer (same subagent) fixes them
+- Re-dispatch the reviewer that found issues (or both if fixes are substantial)
+- Repeat until both reviewers approve
+- Don't skip the re-review
+- Document every issue and decision in the final report — implementer questions, reviewer findings, human decisions, and all fixes applied. The final report must be a complete record.
+
 ## Pre-Flight Plan Review
 
 Before dispatching Task 1, scan the plan once for conflicts:
