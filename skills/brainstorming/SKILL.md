@@ -26,7 +26,7 @@ You MUST create a task for each of these items and complete them in order:
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
-6. **Write design doc** — save to `docs/specs/YYYY-MM-DD-<topic>-design.md` and commit
+6. **Write design doc** — save to `docs/specs/YYYY-MM-DD-<topic>-design.md`, must include an `## Architectural Decisions` section
 7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
@@ -113,7 +113,15 @@ digraph brainstorming {
 - Write the validated design (spec) to `docs/specs/YYYY-MM-DD-<topic>-design.md`
   - (User preferences for spec location override this default)
 - Use elements-of-style:writing-clearly-and-concisely skill if available
-- Commit the design document to git
+
+**Architectural Decisions section (required in every spec):**
+
+Every spec must include an `## Architectural Decisions` section. For each significant decision made during brainstorming:
+- State the decision clearly (e.g., "Use PostgreSQL over SQLite")
+- Record the rationale — why this option over the alternatives
+- Note what alternatives were rejected and why
+
+This section is the anchor for all future steps. Implementation, planning, and code review agents must not re-litigate choices already recorded here. Without it, later agents re-examine settled questions and drift from the design.
 
 **Spec Self-Review:**
 After writing the spec document, look at it with fresh eyes:
@@ -122,13 +130,14 @@ After writing the spec document, look at it with fresh eyes:
 2. **Internal consistency:** Do any sections contradict each other? Does the architecture match the feature descriptions?
 3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?
 4. **Ambiguity check:** Could any requirement be interpreted two different ways? If so, pick one and make it explicit.
+5. **Architectural decisions captured:** Does the spec have an `## Architectural Decisions` section with the key choices, rationale, and rejected alternatives? If not, add it before proceeding.
 
 Fix any issues inline. No need to re-review — just fix and move on.
 
 **User Review Gate:**
 After the spec review loop passes, ask the user to review the written spec before proceeding:
 
-> "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
+> "Spec written to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
 
 Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
 

@@ -18,6 +18,8 @@ Task tool (general-purpose):
 
     ## Before You Begin
 
+    Load behavior-guidelines skill.
+
     If you have questions about:
     - The requirements or acceptance criteria
     - The approach or implementation strategy

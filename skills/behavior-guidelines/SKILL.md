@@ -66,3 +66,8 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Don't commit with user consent
+
+After creating specs or wrote plans. DO NOT automatically create commit. After self-review, Asking user for review and commit permission.  
+Otherwise don't do unless permission granted.
+
