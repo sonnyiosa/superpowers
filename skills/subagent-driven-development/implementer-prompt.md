@@ -2,8 +2,11 @@
 
 Use this template when dispatching an implementer subagent.
 
+Dispatch target is harness-specific: OpenCode uses `sp-implementer`; other
+harnesses use `Subagent (general-purpose)` through their normal tool mapping.
+
 ```
-Subagent (general-purpose):
+OpenCode subagent (`sp-implementer`) or Subagent (general-purpose):
   description: "Implement Task N: [task name]"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
