@@ -81,6 +81,18 @@ digraph process {
 }
 ```
 
+## Implementer Dispatch Target
+
+When this skill says to dispatch the implementer subagent, target the harness
+correctly:
+
+- **OpenCode:** use `sp-implementer` with `implementer-prompt.md`
+- **Other harnesses:** use their normal general-purpose subagent mapping with
+  `implementer-prompt.md`
+
+This applies to initial task implementer dispatches only. Do not change task
+reviewer, final reviewer, or fix subagent targets unless a later plan says so.
+
 **If implementer found something unexpected while implementing:**
 - Escalate to the human with recommended approaches
 - Provide additional context if needed
@@ -275,7 +287,7 @@ a ledger file, not only in todos.
 
 ## Prompt Templates
 
-- [implementer-prompt.md](implementer-prompt.md) - Dispatch implementer subagent
+- [implementer-prompt.md](implementer-prompt.md) - Dispatch implementer subagent (OpenCode: `sp-implementer`; other harnesses: general-purpose mapping)
 - [task-reviewer-prompt.md](task-reviewer-prompt.md) - Dispatch task reviewer subagent (spec compliance + code quality)
 - Final whole-branch review: use superpowers:requesting-code-review's [code-reviewer.md](../requesting-code-review/code-reviewer.md)
 
@@ -420,16 +432,18 @@ Done!
 
 **Required workflow skills:**
 - **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
+- **superpowers:requesting-code-review** - Final whole-branch review template
 
-** Subagent @implementer-sp should use:
+**Implementer dispatch:**
+- **OpenCode:** use `sp-implementer` with `implementer-prompt.md`
+- **Other harnesses:** use their normal general-purpose subagent mapping with `implementer-prompt.md`
+
+**Implementer required skills:**
 - **superpowers:behavior-guidelines** - REQUIRED
+- **superpowers:test-driven-development** - REQUIRED when implementing a feature, bugfix, refactor, or behavior change
 
-** Subagent @code-reviewer should use:
-- **superpowers:code-review-expert** - REQUIRED
-
-**Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
+**Reviewer required skills:**
+- **superpowers:code-review-expert** - REQUIRED for code review subagents
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution

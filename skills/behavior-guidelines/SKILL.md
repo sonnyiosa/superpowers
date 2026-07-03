@@ -26,7 +26,6 @@ Before implementing:
 
 - No features beyond what was asked.
 - No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
 
@@ -40,6 +39,7 @@ When editing existing code:
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
+- Match the existing architecture, follow clean code and SOLID principles.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
