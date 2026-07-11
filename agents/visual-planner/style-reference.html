@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en" x-data="planApp()" x-init="init()" :class="{ 'dark': darkMode }">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eID SSL Pinning — Implementation Plan</title>
+
+  <!-- Styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <!-- Syntax highlighting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-kotlin.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-swift.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-dart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .mermaid { background: transparent; }
+    [x-cloak] { display: none !important; }
+    .scroll-spy-active { background-color: rgba(99,102,241,.12); color: rgb(79,70,229); border-left-color: rgb(99,102,241) !important; }
+    .dark .scroll-spy-active { background-color: rgba(165,180,252,.15); color: rgb(165,180,252); border-left-color: rgb(165,180,252) !important; }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    .copy-btn { opacity: 0; transition: opacity .15s; }
+    pre:hover .copy-btn { opacity: 1; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(127,127,127,.3); border-radius: 5px; }
+    .dark ::-webkit-scrollbar-thumb { background: rgba(200,200,200,.2); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200 min-h-screen">
+  <!-- Top bar -->
+  <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-sm">eID</div>
+        <div>
+          <div class="text-sm font-semibold leading-tight">eID SSL Pinning Plan</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">2026-06-17 · 15 tasks · <span x-text="completedCount"></span>/15 complete</div>
+        </div>
+      </div>
+      <div class="flex-1"></div>
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg w-72">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z"/></svg>
+        <input x-model="search" type="text" placeholder="Filter tasks, files, code…" class="bg-transparent text-sm focus:outline-none w-full" />
+      </div>
+      <button @click="expandAll = !expandAll; Object.keys(open).forEach(k => { if(k.startsWith('t')) open[k] = expandAll; })" class="text-xs px-3 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">
+        <span x-text="expandAll ? 'Collapse all' : 'Expand all'"></span>
+      </button>
+      <button @click="resetProgress()" class="text-xs px-3 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 hover:text-rose-600">
+        Reset
+      </button>
+      <button @click="toggleDark()" class="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center" :aria-label="darkMode ? 'Light mode' : 'Dark mode'">
+        <svg x-show="!darkMode" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+        <svg x-show="darkMode" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-12 gap-6">
+    <!-- Sidebar -->
+    <aside class="col-span-12 lg:col-span-3">
+      <div class="lg:sticky lg:top-20 space-y-4">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Progress</div>
+          <div class="flex items-baseline gap-2 mb-1">
+            <span class="text-2xl font-bold" x-text="completedCount"></span>
+            <span class="text-sm text-slate-500">/ 15 tasks</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 h-2 rounded-full transition-all duration-500" :style="`width: ${(completedCount/15)*100}%`"></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-1.5 text-[11px]">
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Android <span class="text-slate-400" x-text="`(${countDone('android')}/5)`"></span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-500"></span>iOS <span class="text-slate-400" x-text="`(${countDone('ios')}/5)`"></span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Flutter <span class="text-slate-400" x-text="`(${countDone('flutter')}/3)`"></span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Verify <span class="text-slate-400" x-text="`(${countDone('verify')}/1)`"></span></div>
+            <div class="flex items-center gap-1.5 col-span-2"><span class="w-2 h-2 rounded-full bg-violet-500"></span>Docs <span class="text-slate-400" x-text="`(${countDone('docs')}/1)`"></span></div>
+          </div>
+        </div>
+
+        <nav class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-sm">
+          <a href="#overview"      class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'overview' ? 'scroll-spy-active' : ''">Overview</a>
+          <a href="#architecture"  class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'architecture' ? 'scroll-spy-active' : ''">Architecture</a>
+          <a href="#tradeoffs"     class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'tradeoffs' ? 'scroll-spy-active' : ''">Trade-offs</a>
+          <a href="#timeline"      class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'timeline' ? 'scroll-spy-active' : ''">Timeline</a>
+          <a href="#tasks"         class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'tasks' ? 'scroll-spy-active' : ''">Tasks</a>
+          <a href="#code"          class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'code' ? 'scroll-spy-active' : ''">Key Code</a>
+          <a href="#verification"  class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'verification' ? 'scroll-spy-active' : ''">Verification</a>
+          <a href="#files"         class="block px-3 py-1.5 rounded-md border-l-2 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800" :class="active === 'files' ? 'scroll-spy-active' : ''">Files Touched</a>
+        </nav>
+
+        <div class="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 p-4 text-xs">
+          <div class="font-semibold text-amber-800 dark:text-amber-300 mb-1">React Native out of scope</div>
+          <p class="text-amber-700 dark:text-amber-200/80">read-only NFC flow; no <code class="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">baseUrl</code>/config plumbed, so no network surface to pin.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="col-span-12 lg:col-span-9 space-y-12">
+      <!-- Overview -->
+      <section id="overview" class="scroll-mt-20">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-fuchsia-950/30 p-6 sm:p-8">
+          <div class="flex items-start gap-3 mb-4 flex-wrap">
+            <span class="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">PLATFORM · eID API VARIANT</span>
+            <span class="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300">SECURITY · TLS PINNING</span>
+            <span class="px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">ERROR CODE · 50001</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-bold mb-3">Add opt-in SSL pinning to the eID SDK's <span class="text-indigo-600 dark:text-indigo-400">api variant</span></h1>
+          <p class="text-slate-600 dark:text-slate-300 max-w-3xl mb-5">Mirror the existing EKYC SDK pinning in the eID SDK (Android <code>cic-reader/src/api</code>, iOS <code>CakeNfcID</code>). All failures collapse to a single error code <code class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-sm">50001</code>. Pinning is off unless <code>pinningCerts</code> is supplied.</p>
+
+          <div class="grid sm:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 p-4">
+              <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Goal</div>
+              <div class="text-sm">Opt-in public-key pinning for the eID api variant, with one consistent error code across Android and iOS.</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 p-4">
+              <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Approach</div>
+              <div class="text-sm">Android: OkHttp <code>CertificatePinner</code> · iOS: ported <code>CESNfcX509CertPublicKeyPinner</code> with <code>CESNfc</code>-prefixed internal types.</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60 p-4">
+              <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Stack</div>
+              <div class="text-sm">Kotlin · OkHttp · Retrofit · Swift · URLSession · CryptoKit · Dart/Flutter bridge</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Architecture -->
+      <section id="architecture" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-4">Architecture &amp; file flow</h2>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6">
+          <div class="mermaid" id="archMermaid">
+flowchart LR
+  subgraph AND["Android (cic-reader/api)"]
+    direction TB
+    A1["CICConfig<br/>+ pinningCerts"]
+    A2["CICException<br/>+ .SSLPinningError 50001"]
+    A3["ApiService.Factory<br/>+ CertificatePinner"]
+    A4["ApiServiceImpl<br/>map SSLPeerUnverifiedException"]
+    A5["demo-nfc<br/>loadPinningCerts()"]
+    A1 --> A3 --> A4
+    A2 --> A4
+    A5 --> A1
+  end
+
+  subgraph IOS["iOS (CakeNfcID)"]
+    direction TB
+    I1["CESNfcConfig<br/>+ pinningCerts"]
+    I2["CESNfcError<br/>+ .SSLPinningError 50001"]
+    I3["CESNfcSSLPinner.swift<br/>CESNfc-prefixed internal types"]
+    I4["CESRestClient<br/>serverTrust challenge"]
+    I5["CESNFCScannerVC<br/>loadDemoPinningCerts()"]
+    I1 --> I4
+    I3 --> I4
+    I2 --> I4
+    I5 --> I1
+  end
+
+  subgraph FLT["Flutter (cake_eid)"]
+    direction TB
+    F1["CakeNfcConfig<br/>+ pinningCerts"]
+    F2["CakeNfcPlugin.kt<br/>pass to CICConfig"]
+    F3["CakeNfcPlugin.swift<br/>pass to CESNfcConfig"]
+    F1 --> F2 --> AND
+    F1 --> F3 --> IOS
+  end
+
+  subgraph DOCS["Docs"]
+    D1["android-ssl-pinning.md<br/>+ eID row"]
+    D2["ios-ssl-pinning.md<br/>+ eID row + snippet"]
+  end
+
+  classDef android fill:#dcfce7,stroke:#16a34a,color:#064e3b
+  classDef ios fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+  classDef flutter fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef docs fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  class A1,A2,A3,A4,A5 android
+  class I1,I2,I3,I4,I5 ios
+  class F1,F2,F3 flutter
+  class D1,D2 docs
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Same opt-in model on both platforms: <code>pinningCerts == null</code> → pinning off (correct fail-open). Once supplied, misconfiguration is fail-closed — a deterministic configuration error, never a silent downgrade.</p>
+        </div>
+      </section>
+
+      <!-- Trade-offs -->
+      <section id="tradeoffs" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Architectural &amp; security trade-offs</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Click a card to expand the rationale.</p>
+        <div class="grid md:grid-cols-2 gap-3">
+          <template x-for="(d, i) in decisions" :key="i">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                 @click="decisions[i].open = !decisions[i].open"
+                 :class="decisions[i].open ? 'ring-1 ring-indigo-300 dark:ring-indigo-700' : ''">
+              <div class="p-4 flex items-start gap-3">
+                <div class="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0" :class="d.tone">
+                  <span x-text="d.tag"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-sm" x-text="d.title"></div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" x-text="d.subtitle"></div>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform flex-shrink-0" :class="decisions[i].open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+              <div class="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300" x-show="decisions[i].open" x-cloak>
+                <div class="pt-2 border-t border-slate-100 dark:border-slate-800" x-html="d.body"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- Timeline -->
+      <section id="timeline" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Phase timeline</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">15 tasks grouped by platform. Click a node to jump to the task detail.</p>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 overflow-x-auto">
+          <div class="min-w-[820px]">
+            <div class="grid grid-cols-5 gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider">
+              <div>Android</div>
+              <div>iOS</div>
+              <div>Flutter</div>
+              <div>Verify</div>
+              <div>Docs</div>
+            </div>
+            <div class="space-y-2">
+              <template x-for="(row, idx) in timeline" :key="idx">
+                <div class="grid grid-cols-5 gap-2">
+                  <template x-for="(cell, cidx) in row" :key="cidx">
+                    <div>
+                      <template x-if="cell">
+                        <a :href="'#task-' + cell.id" class="block group">
+                          <div class="rounded-lg border p-2 text-xs transition-all"
+                               :class="cell.done
+                                 ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                                 : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 group-hover:border-indigo-300 dark:group-hover:border-indigo-700'">
+                            <div class="flex items-center gap-1.5">
+                              <span class="font-mono text-[10px] opacity-70" x-text="'T' + cell.id"></span>
+                              <span class="truncate" x-text="cell.label"></span>
+                            </div>
+                          </div>
+                        </a>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tasks -->
+      <section id="tasks" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Tasks</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Checkboxes persist to <code>localStorage</code>. Open each task for files, build commands, and steps.</p>
+        <div class="space-y-3">
+          <template x-for="t in visibleTasks" :key="t.id">
+            <article :id="'task-' + t.id"
+                     class="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden"
+                     :class="isChecked(t.id) ? 'border-emerald-300 dark:border-emerald-800' : 'border-slate-200 dark:border-slate-800'">
+              <header class="flex items-center gap-3 p-4 cursor-pointer" @click="open['t'+t.id] = !open['t'+t.id]">
+                <input type="checkbox"
+                       :checked="isChecked(t.id)"
+                       @click.stop
+                       @change="toggle(t.id)"
+                       class="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] font-mono text-slate-400" x-text="'T' + t.id"></span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="platformBadge(t.platform)" x-text="t.platform.toUpperCase()"></span>
+                    <h3 class="font-semibold text-sm" x-text="t.title"></h3>
+                    <template x-if="isChecked(t.id)">
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">DONE</span>
+                    </template>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate" x-text="t.files.map(f => shortFile(f)).join(' · ')"></div>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 transition-transform flex-shrink-0" :class="open['t'+t.id] ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </header>
+              <div x-show="open['t'+t.id]" x-cloak class="border-t border-slate-200 dark:border-slate-800 p-4 space-y-4">
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Files</div>
+                  <ul class="space-y-1 text-xs">
+                    <template x-for="f in t.files" :key="f">
+                      <li class="flex items-center gap-2 font-mono">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                              :class="fileBadge(f)" x-text="fileAction(f)"></span>
+                        <span class="truncate" x-text="f"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Steps</div>
+                  <ol class="space-y-1.5 text-sm list-decimal pl-5">
+                    <template x-for="(s, si) in t.steps" :key="si">
+                      <li class="text-slate-700 dark:text-slate-300" x-text="s"></li>
+                    </template>
+                  </ol>
+                </div>
+                <div x-show="t.commands && t.commands.length">
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Build &amp; verify</div>
+                  <div class="space-y-2">
+                    <template x-for="c in t.commands" :key="c">
+                      <div class="relative group">
+                        <pre class="!my-0 text-xs rounded-lg"><code class="language-bash" x-text="c"></code></pre>
+                        <button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-100 rounded" @click="copy(c, $event)">copy</button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div x-show="t.commit">
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Commit</div>
+                  <div class="relative group">
+                    <pre class="!my-0 text-xs rounded-lg"><code class="language-bash" x-text="t.commit"></code></pre>
+                    <button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-100 rounded" @click="copy(t.commit, $event)">copy</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </template>
+        </div>
+      </section>
+
+      <!-- Key Code -->
+      <section id="code" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Key code snippets</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">The load-bearing blocks. Each card shows the file, language, and a one-line "why this matters".</p>
+        <div class="grid gap-3">
+          <template x-for="(s, i) in snippets" :key="i">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+              <div class="flex items-center gap-3 p-3 border-b border-slate-100 dark:border-slate-800">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase" :class="langBadge(s.lang)" x-text="s.lang"></span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold truncate" x-text="s.title"></div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate" x-text="s.file"></div>
+                </div>
+                <div class="hidden md:block text-[11px] text-slate-500 dark:text-slate-400 max-w-md truncate" x-text="s.why"></div>
+                <button @click="open['snip'+i] = !open['snip'+i]" class="text-[11px] px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0">
+                  <span x-text="open['snip'+i] ? 'Hide' : 'Show'"></span>
+                </button>
+              </div>
+              <div x-show="open['snip'+i]" x-cloak class="p-3 bg-slate-900">
+                <div class="relative">
+                  <button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-100 rounded z-10" @click="copy(s.code, $event)">copy</button>
+                  <pre class="!my-0 text-xs rounded-lg"><code :class="'language-' + s.lang" x-text="s.code"></code></pre>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- Verification matrix -->
+      <section id="verification" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Manual verification matrix <span class="text-sm font-normal text-slate-500">(Task 14)</span></h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">10-step TLS test plan that exercises both platforms. Check off cases as you run them.</p>
+
+        <div class="grid lg:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+            <div class="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-emerald-700 dark:text-emerald-300">Android</div>
+            <table class="w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr><th class="px-3 py-2 font-medium">Case</th><th class="px-3 py-2 font-medium">Setup</th><th class="px-3 py-2 font-medium">Expected</th><th class="px-3 py-2 font-medium">OK</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="(r, i) in matrix.android" :key="i">
+                  <tr class="border-t border-slate-100 dark:border-slate-800">
+                    <td class="px-3 py-2 font-semibold" x-text="r.case"></td>
+                    <td class="px-3 py-2" x-text="r.setup"></td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400" x-text="r.expected"></td>
+                    <td class="px-3 py-2 text-center"><input type="checkbox" :checked="r.ok" @change="matrix.android[i].ok = $event.target.checked; persistMatrix()" class="w-3.5 h-3.5 rounded text-emerald-500" /></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+            <div class="px-4 py-2.5 bg-sky-50 dark:bg-sky-950/40 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-sky-700 dark:text-sky-300">iOS</div>
+            <table class="w-full text-xs">
+              <thead class="text-left text-slate-500 dark:text-slate-400">
+                <tr><th class="px-3 py-2 font-medium">Case</th><th class="px-3 py-2 font-medium">Setup</th><th class="px-3 py-2 font-medium">Expected</th><th class="px-3 py-2 font-medium">OK</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="(r, i) in matrix.ios" :key="i">
+                  <tr class="border-t border-slate-100 dark:border-slate-800">
+                    <td class="px-3 py-2 font-semibold" x-text="r.case"></td>
+                    <td class="px-3 py-2" x-text="r.setup"></td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400" x-text="r.expected"></td>
+                    <td class="px-3 py-2 text-center"><input type="checkbox" :checked="r.ok" @change="matrix.ios[i].ok = $event.target.checked; persistMatrix()" class="w-3.5 h-3.5 rounded text-emerald-500" /></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mt-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm">
+          <div class="font-semibold text-amber-800 dark:text-amber-300 mb-1">Fail-closed config errors (step 8)</div>
+          <ul class="list-disc pl-5 text-amber-900 dark:text-amber-200/90 space-y-1 text-xs">
+            <li><b>Android</b>: non-empty <code>pinningCerts</code> + invalid <code>baseUrl</code> (no host) → <code>CICReadSDK.initialize</code> throws <code>IllegalArgumentException</code>. Garbage bytes cert → <code>IllegalArgumentException("Invalid SSL pinning certificate supplied")</code>.</li>
+            <li><b>iOS</b>: garbage bytes (or an EC cert) → DEBUG fires <code>assertionFailure</code> at init; release: every <code>readCard</code> / <code>sendLogs</code> rejects with <code>CESNfcError.SSLPinningError</code> (50001) — never appears as an unpinned success.</li>
+          </ul>
+        </div>
+
+        <div class="mt-3 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50 dark:bg-violet-950/30 p-4 text-sm">
+          <div class="font-semibold text-violet-800 dark:text-violet-300 mb-1">Flutter bridge smoke (step 9)</div>
+          <p class="text-violet-900 dark:text-violet-200/90 text-xs">In <code>component/flutter/cake_eid/example</code>, pass <code>pinningCerts: [&lt;der bytes&gt;]</code> (correct then wrong) into <code>CakeNfcConfig</code> and confirm: correct cert verifies, wrong cert rejects with code <code>50001</code> on both Android and iOS — proving the bridge reaches the native pinner.</p>
+        </div>
+      </section>
+
+      <!-- Files Touched -->
+      <section id="files" class="scroll-mt-20">
+        <h2 class="text-xl font-bold mb-1">Files touched</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Full inventory across all 15 tasks, grouped by platform.</p>
+        <div class="grid md:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2">Android · 5 files</div>
+            <ul class="space-y-1.5 text-xs font-mono">
+              <template x-for="f in files.android" :key="f">
+                <li class="flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0" :class="fileBadge(f)" x-text="fileAction(f)"></span>
+                  <span class="truncate" x-text="f"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <div class="text-xs font-semibold text-sky-600 dark:text-sky-400 mb-2">iOS · 5 files (1 create)</div>
+            <ul class="space-y-1.5 text-xs font-mono">
+              <template x-for="f in files.ios" :key="f">
+                <li class="flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0" :class="fileBadge(f)" x-text="fileAction(f)"></span>
+                  <span class="truncate" x-text="f"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <div class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2">Flutter · 3 files</div>
+            <ul class="space-y-1.5 text-xs font-mono">
+              <template x-for="f in files.flutter" :key="f">
+                <li class="flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0" :class="fileBadge(f)" x-text="fileAction(f)"></span>
+                  <span class="truncate" x-text="f"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <div class="text-xs font-semibold text-violet-600 dark:text-violet-400 mb-2">Docs · 2 files</div>
+            <ul class="space-y-1.5 text-xs font-mono">
+              <template x-for="f in files.docs" :key="f">
+                <li class="flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0" :class="fileBadge(f)" x-text="fileAction(f)"></span>
+                  <span class="truncate" x-text="f"></span>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <footer class="text-center text-xs text-slate-400 dark:text-slate-600 pt-4 pb-8">
+        Source: <code>docs/plans/2026-06-17-eid-ssl-pinning.md</code> · progress stored in localStorage.
+      </footer>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div x-show="toast" x-cloak x-transition class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm shadow-lg z-50" x-text="toast"></div>
+
+  <!-- Lightweight interactivity -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js" defer></script>
+
+  <script>
+    function planApp() {
+      return {
+        darkMode: false,
+        expandAll: false,
+        search: '',
+        active: 'overview',
+        open: {},
+        toast: '',
+        completedIds: new Set(),
+
+        matrix: {
+          android: [
+            { case: 'A (off)',   setup: 'No nfc_server.crt in assets, pinningCerts=null',                              expected: 'NoopApiService path; if forced on, all calls fail', ok: false },
+            { case: 'B (match)', setup: 'Pin with correct leaf cert from gw.stage.cakedigibank.tech',                  expected: 'Live eID API requests succeed',                     ok: false },
+            { case: 'C (mismatch)', setup: 'Pin with wrong site cert',                                                expected: 'SSLPeerUnverifiedException → 50001 SSLPinningError', ok: false },
+            { case: 'Fail-closed: bad URL',     setup: 'pinningCerts non-empty + baseUrl="not url"',                     expected: 'IllegalArgumentException at init (not silent unpinned)', ok: false },
+            { case: 'Fail-closed: garbage bytes', setup: 'pinningCerts = [random bytes]',                                 expected: 'IllegalArgumentException "Invalid SSL pinning certificate supplied"', ok: false }
+          ],
+          ios: [
+            { case: 'A (off)',     setup: 'No nfc_server.der in bundle, pinningCerts=nil',                            expected: 'No pinning; default TLS only',                                ok: false },
+            { case: 'B (match)',   setup: 'Pin with correct leaf cert from gw.stage.cakedigibank.tech',              expected: 'readCard / sendLogs succeed',                                  ok: false },
+            { case: 'C (mismatch)', setup: 'Pin with wrong site cert',                                               expected: 'cancelAuthenticationChallenge → 50001',                         ok: false },
+            { case: 'Fail-closed: garbage bytes', setup: 'pinningCerts = [random bytes] (release build)',            expected: 'Every request rejects with 50001 SSLPinningError',              ok: false },
+            { case: 'Fail-closed: EC cert',       setup: 'pinningCerts = [EC cert] (only RSA-2048/4096 supported)',  expected: 'pinningConfigError set; deterministic 50001',                     ok: false }
+          ]
+        },
+
+        files: {
+          android: [
+            'component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICConfig.kt',
+            'component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICException.kt',
+            'component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/ApiService.kt',
+            'component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/impl/ApiServiceImpl.kt',
+            'component/android/app/demo-nfc/src/api/java/vn/cake/demo/nfc/MainActivity.kt'
+          ],
+          ios: [
+            'component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESNfcSSLPinner.swift (Create)',
+            'component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcConfig.swift',
+            'component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcError.swift',
+            'component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESRestClient.swift',
+            'component/ios/CakeEkycWorkspace/CakeEkycDemo/DemoApp/ViewControllers/CESNFCScannerViewController.swift'
+          ],
+          flutter: [
+            'component/flutter/cake_eid/lib/src/cake_nfc_config.dart',
+            'component/flutter/cake_eid/android/src/main/kotlin/vn/cake/ekyc/sdk/eid/CakeNfcPlugin.kt',
+            'component/flutter/cake_eid/ios/Classes/CakeNfcPlugin.swift'
+          ],
+          docs: [
+            'docs/ssl-pinning/android-ssl-pinning.md',
+            'docs/ssl-pinning/ios-ssl-pinning.md'
+          ]
+        },
+
+        tasks: [
+          { id: 1, platform: 'android', title: 'Add pinningCerts to CICConfig', files: ['component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICConfig.kt'], steps: ['Add pinningCerts: List<ByteArray>? = null as last ctor param (JVM default)', 'Leave init{} + companion object (readOnly()) untouched', 'Run :cic-reader:compileApiReleaseKotlin — BUILD SUCCESSFUL', 'Commit'], commands: ['cd component/android && ./gradlew :cic-reader:compileApiReleaseKotlin'], commit: 'git add component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICConfig.kt\ngit commit -m "feat(eid-android): add pinningCerts to CICConfig"' },
+          { id: 2, platform: 'android', title: 'Add SSLPinningError (50001) to CICException', files: ['component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICException.kt'], steps: ['Add CICException.SSLPinningError(cause) case in sealed class', 'Map to error code 50001 in the error code table', 'Build verify', 'Commit'], commands: ['cd component/android && ./gradlew :cic-reader:compileApiReleaseKotlin'], commit: 'git add component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/CICException.kt\ngit commit -m "feat(eid-android): add SSLPinningError (50001) to CICException"' },
+          { id: 3, platform: 'android', title: 'Build & apply CertificatePinner in ApiService.Factory', files: ['component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/ApiService.kt'], steps: ['Add OkHttp CertificatePinner + java.security.cert imports', 'In object Factory, call buildCertificatePinner(config)?.let { certificatePinner(it) } inside the OkHttpClient builder', 'Add buildCertificatePinner helper: parse each cert, compute SPKI pin, register against baseUrl host. Unparseable host/invalid cert → IllegalArgumentException (P2.3 fail-closed).', 'Build verify', 'Commit'], commands: ['cd component/android && ./gradlew :cic-reader:compileApiReleaseKotlin'], commit: 'git add component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/ApiService.kt\ngit commit -m "feat(eid-android): apply CertificatePinner from CICConfig.pinningCerts"' },
+          { id: 4, platform: 'android', title: 'Map SSLPeerUnverifiedException → SSLPinningError', files: ['component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/impl/ApiServiceImpl.kt'], steps: ['Add import javax.net.ssl.SSLPeerUnverifiedException', 'Add pin-mismatch branch BEFORE the IOException branch (P2.6: exact type match — only pin failures become 50001; expired cert / protocol errors stay NetworkError)', 'Map to CICException.SSLPinningError(cause)', 'Build verify', 'Commit'], commands: ['cd component/android && ./gradlew :cic-reader:compileApiReleaseKotlin'], commit: 'git add component/android/cic-reader/src/api/java/vn/cake/ekyc/sdk/eid/data/remote/impl/ApiServiceImpl.kt\ngit commit -m "feat(eid-android): map SSLPeerUnverifiedException to SSLPinningError"' },
+          { id: 5, platform: 'android', title: 'Wire pinningCerts into demo (loadPinningCerts)', files: ['component/android/app/demo-nfc/src/api/java/vn/cake/demo/nfc/MainActivity.kt'], steps: ['Update buildConfig() — add pinningCerts = loadPinningCerts()', 'Add loadPinningCerts() helper — reads nfc_server.crt from assets; null on miss (pinning stays off)', 'Note: enableCheckNfcData=false → NoopApiService. To exercise pinning during Task 14, set second arg to true', 'Build :app:demo-nfc:assembleApiDebug', 'Commit'], commands: ['cd component/android && ./gradlew :app:demo-nfc:assembleApiDebug'], commit: 'git add component/android/app/demo-nfc/src/api/java/vn/cake/demo/nfc/MainActivity.kt\ngit commit -m "chore(eid-android-demo): wire pinningCerts from assets"' },
+          { id: 6, platform: 'ios', title: 'Port pinner into CakeNfcID/Internal (CESNfc-prefixed)', files: ['component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESNfcSSLPinner.swift (Create)'], steps: ['Create CESNfcSSLPinner.swift under Classes/Internal', 'Define CESNfcPinningError enum: noCertificatesFromServer, serverTrustEvaluationFailed, certificatesMismatched', 'Define CESNfcSSLPinner protocol + CESNfcX509CertPublicKeyPinner', 'Implement cesNfcPemToDer, getAlgorithmIdentifier (RSA ASN.1 header), getKeyHash (SHA256 of algorithmIdentifier || external rep), getPublicKey', 'Implement validate(_:) — calls SecTrustEvaluateWithError FIRST (P1.1), then pinned-key match', 'pod install picks it up via source_files glob; or add to CakeNfcID target membership in Xcode', 'Build CakeNfcID', 'Commit'], commands: ['cd component/ios/CakeEkycWorkspace && pod install', 'xcodebuild -workspace CakeEkyc.xcworkspace -scheme CakeNfcID build'], commit: 'git add component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESNfcSSLPinner.swift\ngit commit -m "feat(eid-ios): port CESNfc-prefixed public-key pinner into CakeNfcID"' },
+          { id: 7, platform: 'ios', title: 'Add pinningCerts to CESNfcConfig', files: ['component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcConfig.swift'], steps: ['Add stored property let pinningCerts: [Data]? as last init param (default nil)', 'Update init signature preserving existing call sites', 'Build verify', 'Commit'], commands: ['xcodebuild -workspace CakeEkyc.xcworkspace -scheme CakeNfcID build'], commit: 'git add component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcConfig.swift\ngit commit -m "feat(eid-ios): add pinningCerts to CESNfcConfig"' },
+          { id: 8, platform: 'ios', title: 'Add .SSLPinningError (50001) to CESNfcError', files: ['component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcError.swift'], steps: ['Add case SSLPinningError to enum CESNfcError', 'In var value: case .SSLPinningError: return "Có lỗi xảy ra trong quá trình xác thực (errorCode)."', 'In var errorCode: case .SSLPinningError: return 50001', 'Build verify (switches exhaustive)', 'Commit'], commands: ['xcodebuild -workspace CakeEkyc.xcworkspace -scheme CakeNfcID build'], commit: 'git add component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Public/CESNfcError.swift\ngit commit -m "feat(eid-ios): add SSLPinningError (50001) to CESNfcError"' },
+          { id: 9, platform: 'ios', title: 'Wire pinner + serverTrust challenge handler into CESRestClient', files: ['component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESRestClient.swift'], steps: ['In init: if pinningCerts supplied, CESNfcX509CertPublicKeyPinner.create(from:); if pinnedHashCount == 0 → set pinningConfigError = .SSLPinningError (P2.5 fail-closed; DEBUG assertionFailure)', 'In request<T>: guard let pinningConfigError → return Promise(error) BEFORE the url guard (P2.5 fail-closed)', 'In the URLSessionDataDelegate extension: handle didReceive challenge with method == NSURLAuthenticationMethodServerTrust — try sslPinner.validate(challenge); on catch → recordPinningError + .cancelAuthenticationChallenge', 'Build verify', 'Commit'], commands: ['xcodebuild -workspace CakeEkyc.xcworkspace -scheme CakeNfcID build'], commit: 'git add component/ios/CakeEkycWorkspace/CakeEkycSdk/CakeNfcID/Classes/Internal/CESRestClient.swift\ngit commit -m "feat(eid-ios): pin serverTrust in CESRestClient, map failure to SSLPinningError"' },
+          { id: 10, platform: 'ios', title: 'Wire pinningCerts into iOS demo', files: ['component/ios/CakeEkycWorkspace/CakeEkycDemo/DemoApp/ViewControllers/CESNFCScannerViewController.swift'], steps: ['Update nfcConfig initializer — add pinningCerts: loadDemoPinningCerts()', 'Add file-scope loadDemoPinningCerts() — reads nfc_server.der from bundle; nil on miss', 'Build demo scheme', 'Commit'], commands: ['xcodebuild -workspace CakeEkyc.xcworkspace -scheme CakeEkycDemo build'], commit: 'git add component/ios/CakeEkycWorkspace/CakeEkycDemo/DemoApp/ViewControllers/CESNFCScannerViewController.swift\ngit commit -m "chore(eid-ios-demo): wire pinningCerts from bundle"' },
+          { id: 11, platform: 'flutter', title: 'Add pinningCerts to Dart CakeNfcConfig', files: ['component/flutter/cake_eid/lib/src/cake_nfc_config.dart'], steps: ['Add this.pinningCerts constructor param (default null) after this.enableReaderMode = true,', 'Add "pinningCerts": pinningCerts, in toMap()', 'Run flutter analyze', 'Commit'], commands: ['cd component/flutter/cake_eid && flutter analyze lib/src/cake_nfc_config.dart'], commit: 'git add component/flutter/cake_eid/lib/src/cake_nfc_config.dart\ngit commit -m "feat(eid-flutter): add pinningCerts to CakeNfcConfig"' },
+          { id: 12, platform: 'flutter', title: 'Pass pinningCerts through Android plugin (CakeNfcPlugin.kt)', files: ['component/flutter/cake_eid/android/src/main/kotlin/vn/cake/ekyc/sdk/eid/CakeNfcPlugin.kt'], steps: ['Parse params["pinningCerts"] as List<*>.filterIsInstance<ByteArray>()', 'Pass pinningCerts to CICConfig(...) in _config initializer', 'Build :cake_eid android plugin', 'Commit'], commands: ['cd component/flutter/cake_eid/android && ./gradlew assembleDebug'], commit: 'git add component/flutter/cake_eid/android/src/main/kotlin/vn/cake/ekyc/sdk/eid/CakeNfcPlugin.kt\ngit commit -m "feat(eid-flutter-android): bridge pinningCerts to CICConfig"' },
+          { id: 13, platform: 'flutter', title: 'Pass pinningCerts through iOS plugin (CakeNfcPlugin.swift)', files: ['component/flutter/cake_eid/ios/Classes/CakeNfcPlugin.swift'], steps: ['Parse dic["pinningCerts"] as? [FlutterStandardTypedData]?.map { $0.data }', 'Pass pinningCerts to CESNfcConfig(...) initializer', 'Build iOS Flutter example', 'Commit'], commands: ['cd component/flutter/cake_eid/example && flutter build ios --debug --no-codesign'], commit: 'git add component/flutter/cake_eid/ios/Classes/CakeNfcPlugin.swift\ngit commit -m "feat(eid-flutter-ios): bridge pinningCerts to CESNfcConfig"' },
+          { id: 14, platform: 'verify', title: 'Manual TLS verification (10 cases)', files: [], steps: ['Obtain leaf cert via openssl s_client', 'Android cases A/B/C (off / match / mismatch)', 'iOS cases A/B/C (off / match / mismatch)', 'Fail-closed config errors on both platforms (bad URL, garbage bytes; iOS also EC cert)', 'Flutter bridge smoke test in cake_eid/example', 'Revert any demo-only enableCheckNfcData / cert changes that should not ship'], commands: ['openssl s_client -connect gw.stage.cakedigibank.tech:443 -servername gw.stage.cakedigibank.tech </dev/null 2>/dev/null | openssl x509 -outform DER -out /tmp/nfc_server.der'], commit: '' },
+          { id: 15, platform: 'docs', title: 'Update SSL-pinning docs (Android + iOS)', files: ['docs/ssl-pinning/android-ssl-pinning.md', 'docs/ssl-pinning/ios-ssl-pinning.md'], steps: ['Android doc: add cic-reader (eID, api variant) row to Module Coverage', 'Android doc: add eID integration snippet + note OkHttp generic SPKI', 'iOS doc: add CakeNfcID (eID, api variant) row to Module Coverage', 'iOS doc: add eID integration snippet + note ported pinner + SecTrustEvaluateWithError (P1.1)', 'Both docs: add Flutter bridge note (RN out-of-scope callout)', 'Commit'], commands: [], commit: 'git add docs/ssl-pinning/android-ssl-pinning.md docs/ssl-pinning/ios-ssl-pinning.md\ngit commit -m "docs(ssl-pinning): document eID api-variant pinning (native + Flutter, RN limitation)"' }
+        ],
+
+        decisions: [
+          { open: false, tag: 'P1.1', tone: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300', title: 'Pinning augments — never replaces — system trust', subtitle: 'iOS validate() calls SecTrustEvaluateWithError before the pin check', body: '<p>Unlike EKYC core, the eID iOS <code>validate(_:)</code> calls <code>SecTrustEvaluateWithError</code> first. Chain validity, expiry, and hostname matching all run; pinning is an additional gate on top, not a replacement for system trust. Android needs no equivalent — OkHttp\'s <code>CertificatePinner</code> always runs the default trust manager.</p>' },
+          { open: false, tag: 'P2.3/P2.5', tone: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300', title: 'Fail-closed on misconfiguration', subtitle: 'Invalid baseUrl/garbage cert → deterministic error, never silent unpinned TLS', body: '<p>Android: unparseable host or invalid cert in <code>buildCertificatePinner</code> → <code>IllegalArgumentException</code> thrown during SDK init (wrapped in try/catch by callers). iOS: <code>pinningConfigError</code> is set so every <code>request</code> rejects deterministically. In both cases the app does not silently downgrade to unpinned TLS — the integration team gets an actionable error instead of a green-path failure mode.</p>' },
+          { open: false, tag: 'P2.4', tone: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', title: 'iOS RSA-2048 / RSA-4096 only', subtitle: 'Android supports any key type via OkHttp\'s generic SPKI hash', body: '<p>The ported pinner inspects the <code>SecKey</code> AlgorithmIdentifier header to prepend the ASN.1 SPKI prefix before SHA-256. Only RSA-2048 and RSA-4096 prefixes are encoded (P-256/EC keys are explicitly out of scope). On Android, OkHttp\'s <code>CertificatePinner</code> computes the SPKI hash generically, so any key type works — keep that asymmetry in mind if you swap certs.</p>' },
+          { open: false, tag: 'P2.6', tone: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300', title: 'Precise TLS error mapping', subtitle: 'Only SSLPeerUnverifiedException → 50001; other TLS errors stay NetworkError', body: '<p>OkHttp\'s <code>CertificatePinner</code> raises <code>SSLPeerUnverifiedException</code> specifically on pin mismatch. We match the exact type — not a broad <code>SSLException</code> — so expired cert, protocol failure, etc. fall through to <code>NetworkError</code>. <code>SSLPeerUnverifiedException</code> extends <code>SSLException</code> extends <code>IOException</code>, so the new branch must come <b>before</b> the IOException catch. This keeps the support team\'s mental model intact: 50001 means "pin failed", not "TLS in general failed".</p>' },
+          { open: false, tag: '50001', tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', title: 'Single error code across platforms', subtitle: 'Android CICException.SSLPinningError(cause) ≡ iOS CESNfcError.SSLPinningError', body: '<p>Both platforms expose <code>50001</code> for every pin failure path — no-cert-from-server, server-trust evaluation failure, and key hash mismatch all collapse to the same code. Caller code (Flutter plugins, server-side alerting) only needs to switch on one constant regardless of platform.</p>' },
+          { open: false, tag: 'RN', tone: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300', title: 'React Native out of scope (intentional)', subtitle: 'read-only NFC flow, no baseUrl/config, no network to pin', body: '<p><code>react-native-react-native-cake-eid</code> only exposes the read-only NFC flow — there is no <code>baseUrl</code> or network config plumbed through. Pinning is not applicable. The docs task records this limitation so consumers do not search for a non-existent feature. (See spec §3.3 / §7.)</p>' }
+        ],
+
+        snippets: [
+          { lang: 'kotlin', file: 'CICConfig.kt', title: 'Add pinningCerts as last ctor param (default null)', why: 'Preserves every existing readOnly() caller; pinning is opt-in.', code: `@Parcelize\ndata class CICConfig @JvmOverloads constructor(\n    val baseUrl: String,\n    val enableCheckNfcData: Boolean = true,\n    val readTimeout: Long = 60000L,\n    val writeTimeout: Long = 60000L,\n    val cacheScanStrategy: CICCacheScanStrategy = CICCacheScanStrategy.NO_CACHE,\n    val uiConfig: CICUIConfig? = null,\n    val enableReaderMode: Boolean = true,\n    val pinningCerts: List<ByteArray>? = null,\n) : Parcelable {` },
+          { lang: 'kotlin', file: 'ApiService.kt', title: 'Apply CertificatePinner from CICConfig (P2.3 fail-closed)', why: 'Invalid baseUrl or unparseable cert throws IllegalArgumentException — no silent downgrade.', code: `private fun buildCertificatePinner(config: CICConfig): CertificatePinner? {\n    // No certs supplied → pinning intentionally off (correct fail-open).\n    val certs = config.pinningCerts ?: return null\n    if (certs.isEmpty()) return null\n\n    val httpUrl = config.baseUrl.toHttpUrlOrNull()\n        ?: throw IllegalArgumentException("Invalid baseUrl for SSL pinning: \${config.baseUrl}")\n    val host = httpUrl.host\n\n    val pinner = CertificatePinner.Builder()\n    certs.forEachIndexed { idx, der ->\n        val cert = try {\n            CertificateFactory.getInstance("X.509")\n                .generateCertificate(ByteArrayInputStream(der))\n        } catch (e: CertificateException) {\n            throw IllegalArgumentException("Invalid SSL pinning certificate supplied at index \$idx", e)\n        }\n        // OkHttp's pin(format) computes SPKI hash generically — works for any key type.\n        pinner.add(host, "sha256/" + OkHttpCertificatePinnerHelper.spkiPin(cert))\n    }\n    return pinner.build()\n}` },
+          { lang: 'kotlin', file: 'ApiServiceImpl.kt', title: 'Map SSLPeerUnverifiedException → SSLPinningError (P2.6)', why: 'Exact-type match BEFORE the IOException branch — expired cert stays NetworkError.', code: `} catch (e: SSLPeerUnverifiedException) {\n    // Pin mismatch only — not other TLS errors (P2.6).\n    throw CICException.SSLPinningError(cause = e)\n} catch (e: IOException) {\n    throw CICException.NetworkError(cause = e)\n}` },
+          { lang: 'swift', file: 'CESNfcSSLPinner.swift', title: 'P1.1: validate() runs system trust first, then pin check', why: 'Pinning augments default TLS validation; never replaces it.', code: `func validate(_ challenge: URLAuthenticationChallenge) throws -> SecTrust {\n    guard let trust = challenge.protectionSpace.serverTrust else {\n        throw CESNfcPinningError.noCertificatesFromServer\n    }\n\n    // P1.1: Enforce default TLS validation FIRST (chain validity, expiry, hostname).\n    // URLSession does not re-run default trust after the challenge handler.\n    if #available(iOS 15, *) {\n        try SecTrustEvaluateWithError(trust, nil)\n    } else {\n        var error: CFError?\n        guard SecTrustEvaluateWithError(trust, &error) else {\n            throw CESNfcPinningError.serverTrustEvaluationFailed\n        }\n    }\n\n    // ... then compute SPKI pin of the leaf and match against pinnedKeyHashes ...\n    let leaf = SecTrustGetCertificateAtIndex(trust, 0)\n    guard let pubKey = Self.getPublicKey(for: leaf),\n          let keyHash = Self.getKeyHash(of: pubKey),\n          pinnedKeyHashes.contains(keyHash) else {\n        throw CESNfcPinningError.certificatesMismatched\n    }\n    return trust\n}` },
+          { lang: 'swift', file: 'CESRestClient.swift', title: 'P2.5: pinningConfigError makes every request reject deterministically', why: 'Misconfigured pinner → no silent unpinned TLS.', code: `if let pinner = CESNfcX509CertPublicKeyPinner.create(from: certs) {\n    self.sslPinner = pinner\n    self.pinningConfigError = nil\n} else {\n    // Fail-closed (P2.5): certs supplied but unusable — invalid DER or\n    // unsupported key type (only RSA-2048/RSA-4096 supported, P2.4).\n    #if DEBUG\n    assertionFailure("CESNfcConfig.pinningCerts supplied but no valid pins derived.")\n    #endif\n    self.sslPinner = nil\n    self.pinningConfigError = CESNfcError.SSLPinningError\n}` },
+          { lang: 'swift', file: 'CESRestClient.swift', title: 'URLSession serverTrust challenge handler', why: 'Wires pinner into URLSession via didReceive challenge.', code: `func urlSession(\n    _ session: URLSession,\n    task: URLSessionTask,\n    didReceive challenge: URLAuthenticationChallenge,\n    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void\n) {\n    guard let sslPinner,\n          challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust\n    else {\n        completionHandler(.performDefaultHandling, nil); return\n    }\n    do {\n        let serverTrust = try sslPinner.validate(challenge)\n        completionHandler(.useCredential, URLCredential(trust: serverTrust))\n    } catch {\n        recordPinningError(taskID: task.taskDescription, error: error)\n        completionHandler(.cancelAuthenticationChallenge, nil)\n    }\n}` },
+          { lang: 'swift', file: 'CESNfcConfig.swift', title: 'Add pinningCerts as last init param (default nil)', why: 'Same opt-in shape as Android CICConfig — preserves every existing call site.', code: `public struct CESNfcConfig {\n    let baseUrl: String\n    let enableCheckNfcData: Bool\n    let readTimeout: Int\n    let writeTimeout: Int\n    let sessionDelayConfig: CESSessionDelayConfig\n    let cacheScanStrategy: CacheScanStrategy\n    let pinningCerts: [Data]?\n\n    public init(\n        baseUrl: String,\n        enableCheckNfcData: Bool,\n        // ... existing params ...\n        pinningCerts: [Data]? = nil\n    ) { /* assign */ }\n}` },
+          { lang: 'dart', file: 'cake_nfc_config.dart', title: 'Flutter: add pinningCerts to CakeNfcConfig', why: 'Public Dart API; toMap() feeds the platform channel.', code: `CakeNfcConfig({\n  // ...\n  this.enableReaderMode = true,\n  this.pinningCerts,\n});\n\n// in toMap():\n"pinningCerts": pinningCerts,` },
+          { lang: 'kotlin', file: 'CakeNfcPlugin.kt', title: 'Flutter Android plugin: parse List<ByteArray>', why: 'Dart List<Uint8List> arrives as List<*>; filter to ByteArray.', code: `val pinningCerts = (params["pinningCerts"] as? List<*>)\n    ?.filterIsInstance<ByteArray>()\n    ?.takeIf { it.isNotEmpty() }\n\n_config = CICConfig(\n    baseUrl ?: "",\n    enableCheckNfcData,\n    // ...\n    enableReaderMode,\n    pinningCerts = pinningCerts,\n)` },
+          { lang: 'swift', file: 'CakeNfcPlugin.swift', title: 'Flutter iOS plugin: map [FlutterStandardTypedData] → [Data]', why: 'Dart Uint8List bridges to FlutterStandardTypedData on iOS.', code: `let pinningCerts: [Data]? = (dic["pinningCerts"] as? [FlutterStandardTypedData])?\n    .map { $0.data }\n\ncicConfig = CESNfcConfig(\n    baseUrl: baseUrl ?? "",\n    enableCheckNfcData: enableCheckNfcData,\n    // ...\n    pinningCerts: pinningCerts\n)` }
+        ],
+
+        get timeline() {
+          const a = this.tasks.filter(t => t.platform === 'android');
+          const ios = this.tasks.filter(t => t.platform === 'ios');
+          const f = this.tasks.filter(t => t.platform === 'flutter');
+          const v = this.tasks.find(t => t.platform === 'verify');
+          const d = this.tasks.find(t => t.platform === 'docs');
+          const cell = (t) => t ? { id: t.id, label: t.title, done: this.completedIds.has(t.id) } : null;
+          return [
+            [cell(a[0]), cell(ios[0]), cell(f[0]), null, null],
+            [cell(a[1]), cell(ios[1]), cell(f[1]), null, null],
+            [cell(a[2]), cell(ios[2]), cell(f[2]), null, null],
+            [cell(a[3]), cell(ios[3]), null, null, null],
+            [cell(a[4]), cell(ios[4]), null, cell(v), cell(d)]
+          ];
+        },
+
+        get visibleTasks() {
+          const q = this.search.toLowerCase().trim();
+          if (!q) return this.tasks;
+          return this.tasks.filter(t =>
+            t.title.toLowerCase().includes(q) ||
+            t.platform.toLowerCase().includes(q) ||
+            t.files.some(f => f.toLowerCase().includes(q))
+          );
+        },
+
+        get completedCount() { return this.completedIds.size; },
+
+        countDone(platform) {
+          return this.tasks.filter(t => t.platform === platform && this.completedIds.has(t.id)).length;
+        },
+
+        platformBadge(p) {
+          return ({
+            android: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+            ios:     'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
+            flutter: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+            verify:  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
+            docs:    'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300'
+          })[p] || 'bg-slate-100 text-slate-700';
+        },
+
+        fileAction(f) {
+          return f.includes('(Create)') ? 'CREATE' : 'MODIFY';
+        },
+
+        fileBadge(f) {
+          return f.includes('(Create)')
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300';
+        },
+
+        shortFile(f) {
+          return f.replace('component/android/', 'android/')
+                  .replace('component/ios/CakeEkycWorkspace/', 'ios/')
+                  .replace('component/flutter/', 'flutter/')
+                  .replace('component/', '');
+        },
+
+        isChecked(id) { return this.completedIds.has(id); },
+
+        toggle(id) {
+          if (this.completedIds.has(id)) this.completedIds.delete(id);
+          else this.completedIds.add(id);
+          this.persist();
+        },
+
+        resetProgress() {
+          if (!confirm('Reset all task checkboxes and verification matrix?')) return;
+          this.completedIds = new Set();
+          Object.keys(this.matrix).forEach(k => this.matrix[k].forEach(r => r.ok = false));
+          this.persist();
+          this.persistMatrix();
+          this.showToast('Progress reset');
+        },
+
+        copy(text, ev) {
+          navigator.clipboard.writeText(text).then(() => this.showToast('Copied to clipboard'));
+        },
+
+        showToast(msg) {
+          this.toast = msg;
+          setTimeout(() => this.toast = '', 1600);
+        },
+
+        toggleDark() {
+          this.darkMode = !this.darkMode;
+          try { localStorage.setItem('eid-pinning-dark', JSON.stringify(this.darkMode)); } catch (e) {}
+        },
+
+        persist() {
+          try { localStorage.setItem('eid-pinning-progress', JSON.stringify([...this.completedIds])); } catch (e) {}
+        },
+
+        persistMatrix() {
+          try { localStorage.setItem('eid-pinning-matrix', JSON.stringify(this.matrix)); } catch (e) {}
+        },
+
+        init() {
+          try {
+            const dark = JSON.parse(localStorage.getItem('eid-pinning-dark') || 'null');
+            if (dark !== null) this.darkMode = dark;
+            const ids = JSON.parse(localStorage.getItem('eid-pinning-progress') || '[]');
+            if (Array.isArray(ids)) this.completedIds = new Set(ids);
+            const m = JSON.parse(localStorage.getItem('eid-pinning-matrix') || 'null');
+            if (m) {
+              if (m.android) m.android.forEach((r, i) => this.matrix.android[i] && (this.matrix.android[i].ok = r.ok));
+              if (m.ios) m.ios.forEach((r, i) => this.matrix.ios[i] && (this.matrix.ios[i].ok = r.ok));
+            }
+          } catch (e) {}
+
+          this.open = { t1: true, snip0: true, snip1: true };
+
+          this.$nextTick(() => {
+            if (window.mermaid) {
+              const isDark = this.darkMode;
+              window.mermaid.initialize({
+                startOnLoad: false,
+                theme: isDark ? 'dark' : 'neutral',
+                flowchart: { curve: 'basis', padding: 12 }
+              });
+              window.mermaid.run({ querySelector: '#archMermaid' }).catch(() => {});
+            }
+            if (window.Prism) window.Prism.highlightAll();
+          });
+
+          const sections = ['overview', 'architecture', 'tradeoffs', 'timeline', 'tasks', 'code', 'verification', 'files'];
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+              if (e.isIntersecting) this.active = e.target.id;
+            });
+          }, { rootMargin: '-30% 0px -55% 0px' });
+          sections.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) observer.observe(el);
+          });
+        }
+      };
+    }
+  </script>
+</body>
+</html>
