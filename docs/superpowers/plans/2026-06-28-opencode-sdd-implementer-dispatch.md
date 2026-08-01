@@ -113,7 +113,7 @@ Replace `skills/subagent-driven-development/SKILL.md:419-435` with:
 - **superpowers:test-driven-development** - REQUIRED when implementing a feature, bugfix, refactor, or behavior change
 
 **Reviewer required skills:**
-- **swe-skills:code-review-expert** - REQUIRED for code review subagents
+- **swe-skills:code-review** - REQUIRED for code review subagents
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution

@@ -10,7 +10,7 @@ const pluginRoot = resolve(repoRoot, 'plugins/swe-skills');
 const entryPath = resolve(pluginRoot, '.opencode/plugins/swe-skills.js');
 const expectedSkills = [
   'behavior-guidelines',
-  'code-review-expert',
+  'code-review',
   'design-an-interface',
   'managing-skill-library',
   'self-evolved',

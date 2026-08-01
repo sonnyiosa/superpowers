@@ -310,7 +310,7 @@ if [[ -f "$swe_archive" ]]; then
   swe_archive_paths="$(list_archive "$swe_archive" | normalize_archive_paths)"
   assert_contains "$swe_archive_paths" ".codex-plugin/plugin.json" "companion archive includes Codex manifest"
   assert_contains "$swe_archive_paths" "skills/behavior-guidelines/SKILL.md" "companion archive includes behavior guidelines"
-  assert_contains "$swe_archive_paths" "skills/code-review-expert/references/solid-checklist.md" "companion archive includes review references"
+  assert_contains "$swe_archive_paths" "skills/code-review/references/solid-checklist.md" "companion archive includes review references"
   assert_not_matches "$swe_archive_paths" '(^skills/using-superpowers/|^hooks/|^\.opencode/|^\.pi/|^package\.json$|^assets/)' "companion archive excludes core-only paths"
   swe_manifest_name="$(read_archive_file "$swe_archive" .codex-plugin/plugin.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')"
   assert_equals "$swe_manifest_name" "swe-skills" "companion archive manifest name"

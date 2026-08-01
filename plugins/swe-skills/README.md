@@ -5,7 +5,7 @@ SWE Skills is the companion plugin for Superpowers' software-engineering guidanc
 It provides:
 
 - `behavior-guidelines`
-- `code-review-expert`
+- `code-review`
 - `design-an-interface`
 - `managing-skill-library`
 - `self-evolved`

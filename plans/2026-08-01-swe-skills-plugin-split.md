@@ -4,13 +4,13 @@
 
 **Goal:** Create an independently discoverable `plugins/swe-skills` companion plugin containing five skills, remove those skills from the core plugin, and preserve all current harness packaging and workflow behavior.
 
-**Architecture:** Keep `superpowers` at the repository root as the bootstrap and core workflow plugin. Add a committed sibling plugin at `plugins/swe-skills` with its own harness manifests, an OpenCode skill-registration entry point without bootstrap injection, and Pi skill metadata. Move the five skill directories—including `code-review-expert/references`—so each skill has exactly one active source. Update core references to use the explicit `swe-skills:` namespace.
+**Architecture:** Keep `superpowers` at the repository root as the bootstrap and core workflow plugin. Add a committed sibling plugin at `plugins/swe-skills` with its own harness manifests, an OpenCode skill-registration entry point without bootstrap injection, and Pi skill metadata. Move the five skill directories—including `code-review/references`—so each skill has exactly one active source. Update core references to use the explicit `swe-skills:` namespace.
 
 **Tech Stack:** Markdown `SKILL.md` files, JSON manifests, Bash packaging/test scripts, Node.js OpenCode/Pi tests, Python JSON assertions, Git archive/rsync packaging.
 
 ## Global Constraints
 
-- `swe-skills` is the sole source and distribution point for `behavior-guidelines`, `code-review-expert`, `design-an-interface`, `managing-skill-library`, and `self-evolved`.
+- `swe-skills` is the sole source and distribution point for `behavior-guidelines`, `code-review`, `design-an-interface`, `managing-skill-library`, and `self-evolved`.
 - `plugins/swe-skills/` is a committed sibling plugin; do not create a generated mirror or move the skills to another repository.
 - `superpowers` retains `using-superpowers`, all session-start hooks, OpenCode bootstrap injection, Pi bootstrap injection, and Gemini bootstrap context ownership.
 - Core workflow references to moved skills use `swe-skills:<skill-name>`; do not retain a fallback `superpowers:<moved-skill>` namespace.
@@ -36,7 +36,7 @@
 - Create: `plugins/swe-skills/README.md` — companion-plugin installation and ownership documentation.
 - Create: `plugins/swe-skills/LICENSE` — repository MIT license copied verbatim for standalone package archives.
 - Move: `skills/behavior-guidelines/` → `plugins/swe-skills/skills/behavior-guidelines/`.
-- Move: `skills/code-review-expert/` → `plugins/swe-skills/skills/code-review-expert/`, preserving its three `references/*.md` files and excluding `.DS_Store`.
+- Move: `skills/code-review/` → `plugins/swe-skills/skills/code-review/`, preserving its three `references/*.md` files and excluding `.DS_Store`.
 - Move: `skills/design-an-interface/` → `plugins/swe-skills/skills/design-an-interface/`.
 - Move: `skills/managing-skill-library/` → `plugins/swe-skills/skills/managing-skill-library/`.
 - Move: `skills/self-evolved/` → `plugins/swe-skills/skills/self-evolved/`.
@@ -44,7 +44,7 @@
 ### Core files to modify
 
 - Modify: `skills/brainstorming/SKILL.md` — change the behavior-guidelines invocation to `swe-skills:behavior-guidelines`.
-- Modify: `skills/requesting-code-review/SKILL.md` — change the code-review-expert requirement to `swe-skills:code-review-expert`.
+- Modify: `skills/requesting-code-review/SKILL.md` — change the code-review requirement to `swe-skills:code-review`.
 - Modify: `skills/subagent-driven-development/SKILL.md` — change both moved-skill requirements to the `swe-skills:` namespace.
 - Modify: `skills/subagent-driven-development/implementer-prompt.md` — change the behavior-guidelines load target.
 - Modify: `agents/code-reviewer.md` — change its required review skill namespace.
@@ -92,9 +92,9 @@ Implement `tests/swe-skills/test-plugin-layout.sh` as a Bash test that:
 
 1. Sets `REPO_ROOT` from the test location and `PLUGIN_ROOT="$REPO_ROOT/plugins/swe-skills"`.
 2. Expects exactly these five immediate `skills` directories, sorted lexicographically:
-   `behavior-guidelines`, `code-review-expert`, `design-an-interface`, `managing-skill-library`, `self-evolved`.
+   `behavior-guidelines`, `code-review`, `design-an-interface`, `managing-skill-library`, `self-evolved`.
 3. Fails if any of those names still exists under `$REPO_ROOT/skills`.
-4. Requires `code-review-expert/references/code-quality-checklist.md`, `object-design.md`, and `solid-checklist.md`.
+4. Requires `code-review/references/code-quality-checklist.md`, `object-design.md`, and `solid-checklist.md`.
 5. Parses each of the five JSON manifests with Python and asserts `name == "swe-skills"`, `version == the core `.codex-plugin/plugin.json` version`, and `skills == "./skills/"` wherever the manifest has a `skills` field.
 6. Asserts `.codex-plugin/plugin.json` has `hooks == {}`.
 7. Asserts the companion package declares `name == "swe-skills"`, the same version, `main == ".opencode/plugins/swe-skills.js"`, and `pi.skills == ["./skills"]`.
@@ -150,7 +150,7 @@ test: define swe-skills plugin boundaries
 **Files:**
 - Create: `plugins/swe-skills/skills/`
 - Move: `skills/behavior-guidelines/` → `plugins/swe-skills/skills/behavior-guidelines/`
-- Move: `skills/code-review-expert/` → `plugins/swe-skills/skills/code-review-expert/`
+- Move: `skills/code-review/` → `plugins/swe-skills/skills/code-review/`
 - Move: `skills/design-an-interface/` → `plugins/swe-skills/skills/design-an-interface/`
 - Move: `skills/managing-skill-library/` → `plugins/swe-skills/skills/managing-skill-library/`
 - Move: `skills/self-evolved/` → `plugins/swe-skills/skills/self-evolved/`
@@ -166,13 +166,13 @@ Run:
 ```bash
 mkdir -p plugins/swe-skills/skills
 git mv skills/behavior-guidelines plugins/swe-skills/skills/behavior-guidelines
-git mv skills/code-review-expert plugins/swe-skills/skills/code-review-expert
+git mv skills/code-review plugins/swe-skills/skills/code-review
 git mv skills/design-an-interface plugins/swe-skills/skills/design-an-interface
 git mv skills/managing-skill-library plugins/swe-skills/skills/managing-skill-library
 git mv skills/self-evolved plugins/swe-skills/skills/self-evolved
 ```
 
-Remove only the incidental `plugins/swe-skills/skills/code-review-expert/.DS_Store` if it moved with the directory. Do not edit skill content in this task.
+Remove only the incidental `plugins/swe-skills/skills/code-review/.DS_Store` if it moved with the directory. Do not edit skill content in this task.
 
 - [ ] **Step 2: Verify source ownership and content preservation**
 
@@ -180,11 +180,11 @@ Run:
 
 ```bash
 find plugins/swe-skills/skills -maxdepth 2 -type f | sort
-find skills -maxdepth 2 -type f | sort | grep -E '/(behavior-guidelines|code-review-expert|design-an-interface|managing-skill-library|self-evolved)(/|$)' || true
+find skills -maxdepth 2 -type f | sort | grep -E '/(behavior-guidelines|code-review|design-an-interface|managing-skill-library|self-evolved)(/|$)' || true
 git diff --summary
 ```
 
-Expected: the five skill directories are absent from root `skills/`; Git reports directory renames; `code-review-expert` retains `SKILL.md` and exactly its three Markdown reference files.
+Expected: the five skill directories are absent from root `skills/`; Git reports directory renames; `code-review` retains `SKILL.md` and exactly its three Markdown reference files.
 
 - [ ] **Step 3: Run the ownership test**
 
@@ -348,7 +348,7 @@ feat: add swe-skills companion plugin manifests
 Run:
 
 ```bash
-grep -RInE 'superpowers:(behavior-guidelines|code-review-expert|design-an-interface|managing-skill-library|self-evolved)' \
+grep -RInE 'superpowers:(behavior-guidelines|code-review|design-an-interface|managing-skill-library|self-evolved)' \
   --exclude-dir=.git --exclude-dir=.history . || true
 ```
 
@@ -360,7 +360,7 @@ Apply only these substitutions:
 
 ```text
 superpowers:behavior-guidelines       → swe-skills:behavior-guidelines
-superpowers:code-review-expert        → swe-skills:code-review-expert
+superpowers:code-review        → swe-skills:code-review
 superpowers:managing-skill-library     → swe-skills:managing-skill-library
 ```
 
@@ -371,12 +371,12 @@ For prose that names a skill without the `superpowers:` prefix but describes a r
 Run:
 
 ```bash
-if grep -RInE 'superpowers:(behavior-guidelines|code-review-expert|design-an-interface|managing-skill-library|self-evolved)' \
+if grep -RInE 'superpowers:(behavior-guidelines|code-review|design-an-interface|managing-skill-library|self-evolved)' \
   --exclude-dir=.git --exclude-dir=.history .; then
   echo 'stale moved-skill namespace remains' >&2
   exit 1
 fi
-grep -RInE 'swe-skills:(behavior-guidelines|code-review-expert|managing-skill-library)' \
+grep -RInE 'swe-skills:(behavior-guidelines|code-review|managing-skill-library)' \
   skills agents docs/superpowers plugins/swe-skills
 ```
 
@@ -708,16 +708,16 @@ Run:
 
 ```bash
 set -e
-for skill in behavior-guidelines code-review-expert design-an-interface managing-skill-library self-evolved; do
+for skill in behavior-guidelines code-review design-an-interface managing-skill-library self-evolved; do
   test ! -e "skills/$skill"
   test -e "plugins/swe-skills/skills/$skill/SKILL.md"
 done
 
-test -e plugins/swe-skills/skills/code-review-expert/references/solid-checklist.md
-test -e plugins/swe-skills/skills/code-review-expert/references/object-design.md
-test -e plugins/swe-skills/skills/code-review-expert/references/code-quality-checklist.md
+test -e plugins/swe-skills/skills/code-review/references/solid-checklist.md
+test -e plugins/swe-skills/skills/code-review/references/object-design.md
+test -e plugins/swe-skills/skills/code-review/references/code-quality-checklist.md
 
-if grep -RInE 'superpowers:(behavior-guidelines|code-review-expert|design-an-interface|managing-skill-library|self-evolved)' \
+if grep -RInE 'superpowers:(behavior-guidelines|code-review|design-an-interface|managing-skill-library|self-evolved)' \
   --exclude-dir=.git --exclude-dir=.history .; then
   exit 1
 fi

@@ -7,7 +7,7 @@ Split five reusable software-engineering skills out of the root `superpowers` pl
 The moved skills are:
 
 - `behavior-guidelines`
-- `code-review-expert`
+- `code-review`
 - `design-an-interface`
 - `managing-skill-library`
 - `self-evolved`
@@ -46,7 +46,7 @@ plugins/
     ├── package.json
     └── skills/
         ├── behavior-guidelines/SKILL.md
-        ├── code-review-expert/
+        ├── code-review/
         │   ├── SKILL.md
         │   └── references/
         │       ├── code-quality-checklist.md
@@ -57,7 +57,7 @@ plugins/
         └── self-evolved/SKILL.md
 ```
 
-The root plugin keeps its existing layout and contains every remaining skill plus its runtime/bootstrap files. The five moved directories, including `code-review-expert/references/`, are removed from the root `skills/` tree. Incidental `.DS_Store` files are not carried into the new plugin.
+The root plugin keeps its existing layout and contains every remaining skill plus its runtime/bootstrap files. The five moved directories, including `code-review/references/`, are removed from the root `skills/` tree. Incidental `.DS_Store` files are not carried into the new plugin.
 
 Each current harness manifest will follow the existing per-harness conventions and point to `plugins/swe-skills/skills/` or the equivalent local plugin-relative path. The new plugin will use the name `swe-skills`, its own display metadata, and the same synchronized version as `superpowers`.
 
@@ -73,7 +73,7 @@ Each current harness manifest will follow the existing per-harness conventions a
 ### `swe-skills`
 
 - Owns and registers exactly the five moved skills.
-- Ships the three `code-review-expert` reference checklists with that skill.
+- Ships the three `code-review` reference checklists with that skill.
 - Provides harness-specific metadata and package entry points without duplicating core bootstrap behavior.
 - Can be installed for access to these skills, but full Superpowers workflow behavior requires the core plugin as well.
 
@@ -115,7 +115,7 @@ The new plugin should not inherit core-only hooks, tests, docs, or bootstrap fil
 ## Migration details
 
 1. Move the five skill directories from root `skills/` into `plugins/swe-skills/skills/`.
-2. Preserve all tracked skill content and the three `code-review-expert` references.
+2. Preserve all tracked skill content and the three `code-review` references.
 3. Remove the original root directories so there is one authoritative source for each skill.
 4. Add all required companion manifests/package metadata.
 5. Update core namespace references from `superpowers:<moved-skill>` to `swe-skills:<moved-skill>`.
@@ -143,7 +143,7 @@ Packaging must fail validation if:
 
 - Assert the five moved skill names are absent from root `skills/`.
 - Assert the companion plugin contains exactly the five moved skills.
-- Assert all three `code-review-expert` reference files are present.
+- Assert all three `code-review` reference files are present.
 - Assert no duplicate active skill source exists between the two plugin trees.
 
 ### Namespace/reference checks

@@ -16,7 +16,7 @@ fail() {
 
 expected_skills=(
   behavior-guidelines
-  code-review-expert
+  code-review
   design-an-interface
   managing-skill-library
   self-evolved
@@ -35,8 +35,8 @@ for skill in "${expected_skills[@]}"; do
 done
 
 for reference in solid-checklist.md object-design.md code-quality-checklist.md; do
-  [[ -f "$PLUGIN_ROOT/skills/code-review-expert/references/$reference" ]] ||
-    fail "missing code-review-expert reference: $reference"
+  [[ -f "$PLUGIN_ROOT/skills/code-review/references/$reference" ]] ||
+    fail "missing code-review reference: $reference"
 done
 
 [[ ! -e "$PLUGIN_ROOT/skills/using-superpowers" ]] || fail "companion plugin contains core bootstrap skill"

@@ -1,9 +1,9 @@
 ---
-name: code-review-expert
+name: code-review
 description: "Expert code review of current git changes with a senior engineer lens. Detects SOLID violations, security risks, and proposes actionable improvements."
 ---
 
-# Code Review Expert
+# Code Review
 
 ## Overview
 
