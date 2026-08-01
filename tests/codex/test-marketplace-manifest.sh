@@ -45,6 +45,36 @@ assert_equal(
 )
 assert_equal(plugin.get("category"), "Developer Tools", "plugin category")
 
+core_manifest_path = repo_root / ".codex-plugin" / "plugin.json"
+core_version = json.loads(core_manifest_path.read_text(encoding="utf-8"))["version"]
+
+swe_matches = [plugin for plugin in plugins if plugin.get("name") == "swe-skills"]
+assert_equal(len(swe_matches), 1, "swe-skills plugin entry count")
+swe_plugin = swe_matches[0]
+assert_equal(
+    swe_plugin.get("version"),
+    core_version,
+    "swe-skills marketplace version",
+)
+assert_equal(
+    swe_plugin.get("source"),
+    {"source": "url", "url": "./plugins/swe-skills"},
+    "swe-skills plugin source",
+)
+assert_equal(
+    swe_plugin.get("policy"),
+    {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "swe-skills plugin policy",
+)
+assert_equal(swe_plugin.get("category"), "Developer Tools", "swe-skills plugin category")
+
+swe_manifest_path = repo_root / "plugins" / "swe-skills" / ".codex-plugin" / "plugin.json"
+if not swe_manifest_path.exists():
+    raise AssertionError("plugins/swe-skills/.codex-plugin/plugin.json must exist")
+swe_manifest = json.loads(swe_manifest_path.read_text(encoding="utf-8"))
+assert_equal(swe_manifest.get("name"), "swe-skills", "swe-skills manifest name")
+assert_equal(swe_manifest.get("version"), swe_plugin.get("version"), "swe-skills manifest version")
+
 plugin_manifest = repo_root / ".codex-plugin" / "plugin.json"
 if not plugin_manifest.exists():
     raise AssertionError(".codex-plugin/plugin.json must exist")

@@ -31,7 +31,7 @@ Update `skills/subagent-driven-development/implementer-prompt.md` so its dispatc
 - OpenCode: use `sp-implementer`.
 - Other harnesses: use `Subagent (general-purpose)` through the normal tool mapping.
 
-The rest of the prompt remains unchanged. The dedicated OpenCode subagent still receives the same task brief, report-file contract, behavior-guidelines requirement, testing expectations, commit requirement, and self-review checklist.
+The rest of the prompt remains unchanged. The dedicated OpenCode subagent still receives the same task brief, report-file contract, swe-skills:behavior-guidelines requirement, testing expectations, commit requirement, and self-review checklist.
 
 ### SDD Skill Integration Notes
 

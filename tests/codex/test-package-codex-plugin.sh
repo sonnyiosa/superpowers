@@ -117,8 +117,9 @@ read_archive_file() {
   esac
 }
 
-write_metadata_fixture() {
+write_metadata_fixture_for_root() {
   local destination="$1"
+  local source_root="$2"
   local skill
 
   while IFS= read -r skill; do
@@ -128,10 +129,26 @@ interface:
   display_name: "$skill"
   short_description: "Fixture metadata for $skill"
 EOF
-  done < <(find "$REPO_ROOT/skills" -mindepth 1 -maxdepth 1 -type d -print | sed 's#.*/##' | sort)
+  done < <(find "$source_root/skills" -mindepth 1 -maxdepth 1 -type d -print | sed 's#.*/##' | sort)
+}
+
+write_metadata_fixture() {
+  write_metadata_fixture_for_root "$1" "$REPO_ROOT"
 }
 
 echo "Codex package archive tests"
+
+snapshot_index="$TEST_ROOT/package-index"
+cp "$REPO_ROOT/.git/index" "$snapshot_index"
+GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" add -A -- \
+  .codex-plugin \
+  LICENSE \
+  README.md \
+  assets \
+  skills \
+  plugins/swe-skills
+snapshot_tree="$(GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" write-tree)"
+snapshot_commit="$(printf 'temporary package snapshot\\n' | git -C "$REPO_ROOT" commit-tree "$snapshot_tree" -p HEAD)"
 
 metadata_source="$TEST_ROOT/metadata-source"
 archive="$TEST_ROOT/superpowers"
@@ -143,7 +160,7 @@ write_metadata_fixture "$metadata_source"
 source_hooks="$(python3 -c 'import json; print(json.load(open("'"$REPO_ROOT"'/.codex-plugin/plugin.json")).get("hooks"))')"
 assert_equals "$source_hooks" "{}" "source Codex manifest suppresses local hook auto-discovery"
 
-if output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$metadata_source" --output "$archive" 2>&1)"; then
+if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --output "$archive" 2>&1)"; then
   pass "package script exits successfully"
 else
   fail "package script exits successfully"
@@ -195,7 +212,7 @@ PY
 )"
 assert_equals "$zip_times" "(1980, 1, 1, 0, 0, 0)" "zip archive normalizes entry timestamps"
 
-if tar_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$metadata_source" --format tar.gz --output "$tar_archive" 2>&1)"; then
+if tar_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --format tar.gz --output "$tar_archive" 2>&1)"; then
   pass "package script writes explicit tar.gz archive"
 else
   fail "package script writes explicit tar.gz archive"
@@ -223,7 +240,7 @@ archive_from_zip_source="$TEST_ROOT/superpowers-from-zip-source.zip"
   zip -X -q -r "$metadata_zip" .
 )
 
-if output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$metadata_archive" --output "$archive_from_tar_source" 2>&1)"; then
+if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_archive" --output "$archive_from_tar_source" 2>&1)"; then
   pass "package script accepts tarball metadata source"
 else
   fail "package script accepts tarball metadata source"
@@ -236,7 +253,7 @@ else
   fail "tarball metadata source produces identical archive"
 fi
 
-if output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$metadata_zip" --output "$archive_from_zip_source" 2>&1)"; then
+if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_zip" --output "$archive_from_zip_source" 2>&1)"; then
   pass "package script accepts zip metadata source"
 else
   fail "package script accepts zip metadata source"
@@ -255,7 +272,7 @@ cp "$metadata_source/skills/brainstorming/agents/openai.yaml" \
   "$incomplete_metadata/skills/brainstorming/agents/openai.yaml"
 
 set +e
-missing_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$incomplete_metadata" --output "$TEST_ROOT/missing.tar.gz" 2>&1)"
+missing_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$incomplete_metadata" --output "$TEST_ROOT/missing.tar.gz" 2>&1)"
 missing_status=$?
 set -e
 if [[ "$missing_status" -ne 0 ]]; then
@@ -264,6 +281,46 @@ else
   fail "package script rejects incomplete metadata source"
 fi
 assert_contains "$missing_output" "ERROR: metadata source is incomplete" "incomplete metadata reports clear error"
+
+swe_metadata_source="$TEST_ROOT/swe-metadata-source"
+swe_archive="$TEST_ROOT/swe-skills.zip"
+swe_extracted="$TEST_ROOT/swe-extracted"
+write_metadata_fixture_for_root "$swe_metadata_source" "$REPO_ROOT/plugins/swe-skills"
+
+set +e
+swe_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" \
+  --plugin-root plugins/swe-skills \
+  --plugin-name swe-skills \
+  --allow-dirty \
+  --ref "$snapshot_commit" \
+  --metadata-source "$swe_metadata_source" \
+  --output "$swe_archive" 2>&1)"
+swe_status=$?
+set -e
+if [[ "$swe_status" -eq 0 ]]; then
+  pass "companion package script exits successfully"
+else
+  fail "companion package script exits successfully"
+  printf '%s\n' "$swe_output" | sed 's/^/      /'
+fi
+
+if [[ -f "$swe_archive" ]]; then
+  pass "companion package script writes archive"
+  extract_archive "$swe_archive" "$swe_extracted"
+  swe_archive_paths="$(list_archive "$swe_archive" | normalize_archive_paths)"
+  assert_contains "$swe_archive_paths" ".codex-plugin/plugin.json" "companion archive includes Codex manifest"
+  assert_contains "$swe_archive_paths" "skills/behavior-guidelines/SKILL.md" "companion archive includes behavior guidelines"
+  assert_contains "$swe_archive_paths" "skills/code-review-expert/references/solid-checklist.md" "companion archive includes review references"
+  assert_not_matches "$swe_archive_paths" '(^skills/using-superpowers/|^hooks/|^\.opencode/|^\.pi/|^package\.json$|^assets/)' "companion archive excludes core-only paths"
+  swe_manifest_name="$(read_archive_file "$swe_archive" .codex-plugin/plugin.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')"
+  assert_equals "$swe_manifest_name" "swe-skills" "companion archive manifest name"
+  swe_skill_count="$(find "$swe_extracted/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+  swe_metadata_count="$(find "$swe_extracted/skills" -path '*/agents/openai.yaml' -type f | wc -l | tr -d ' ')"
+  assert_equals "$swe_skill_count" "5" "companion archive contains exactly five skills"
+  assert_equals "$swe_metadata_count" "$swe_skill_count" "every companion skill has OpenAI metadata"
+else
+  fail "companion package script writes archive"
+fi
 
 dirty_repo="$TEST_ROOT/dirty-repo"
 git clone -q --no-local "$REPO_ROOT" "$dirty_repo"

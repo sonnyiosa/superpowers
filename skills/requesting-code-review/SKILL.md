@@ -7,7 +7,7 @@ description: Use when completing tasks, implementing major features, or before m
 
 Dispatch a code reviewer subagent to catch issues before they cascade. The reviewer gets precisely crafted context for evaluation — never your session's history. This keeps the reviewer focused on the work product, not your thought process, and preserves your own context for continued work.
 
-The subagent must load `code-review-expert` skill.
+The subagent must load `swe-skills:code-review-expert` skill.
 
 **Core principle:** Review early, review often.
 

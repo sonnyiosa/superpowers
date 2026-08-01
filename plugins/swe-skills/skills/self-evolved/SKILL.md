@@ -19,7 +19,7 @@ Turn what you just learned in this session into durable, reusable skills so the 
 
 ## Skill Library Mechanics
 
-**REQUIRED SUB-SKILL:** Use superpowers:managing-skill-library for the mechanics — scanning the global Claude-compatible skills directory (NOT local project space), reading existing skills, and patching them with general tools. That skill owns *where skills live* (`~/.claude/skills/<name>/SKILL.md`, plus `references/` · `templates/` · `scripts/` support files). This skill governs **what** to capture and **when**.
+**REQUIRED SUB-SKILL:** Use swe-skills:managing-skill-library for the mechanics — scanning the global Claude-compatible skills directory (NOT local project space), reading existing skills, and patching them with general tools. That skill owns *where skills live* (`~/.claude/skills/<name>/SKILL.md`, plus `references/` · `templates/` · `scripts/` support files). This skill governs **what** to capture and **when**.
 
 ## Workflow
 

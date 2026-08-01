@@ -15,7 +15,11 @@ Add superpowers to the `plugin` array in your `opencode.json` (global or project
 ```
 
 Restart OpenCode. The plugin installs through OpenCode's plugin manager and
-registers all skills.
+registers the core skills and bootstrap.
+
+The companion package lives at `plugins/swe-skills` in this repository. Add that
+package as a second OpenCode plugin source when you need the five SWE skills;
+the root package does not automatically register nested plugin directories.
 
 Verify by asking: "Tell me about your superpowers"
 

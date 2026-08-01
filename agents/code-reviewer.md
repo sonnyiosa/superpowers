@@ -41,4 +41,4 @@ When reviewing completed work, you will:
 
 Your output should be structured, actionable, and focused on helping maintain high code quality while ensuring project goals are met. Be thorough but concise, and always provide constructive feedback that helps improve both the current implementation and future development practices.
 
-Integration: Required **code-review-expert** skill.
+Integration: Required **swe-skills:code-review-expert** skill.

@@ -62,7 +62,7 @@ digraph brainstorming {
 
 ## The Process
 
-- Invoke the behavior-guidelines skill to enforce safe, consistent behavior and prevent common pitfalls.
+- Invoke the swe-skills:behavior-guidelines skill to enforce safe, consistent behavior and prevent common pitfalls.
 
 **Understanding the idea:**
 

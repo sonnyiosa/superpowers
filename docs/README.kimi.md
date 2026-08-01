@@ -12,7 +12,7 @@ Open the plugin manager:
 /plugins
 ```
 
-Go to `Marketplace` > `Superpowers` and install it.
+Go to `Marketplace` > `Superpowers` and install it. For the companion skills, install the separate `SWE Skills` marketplace entry as well.
 
 You can also install from this repository:
 
@@ -39,6 +39,8 @@ The manifest does three things:
 3. Provides Kimi-specific tool mapping through `skillInstructions`.
 
 Kimi Code reads Superpowers skills from this repository. There are no copied skills, symlinks, hooks, or extra runtime dependencies.
+
+The `swe-skills` companion manifest points Kimi Code at its own `skills/` directory and does not load a session-start bootstrap. Install both plugins for the complete workflow.
 
 ## Tool Mapping
 

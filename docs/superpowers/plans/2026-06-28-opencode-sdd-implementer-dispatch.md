@@ -109,11 +109,11 @@ Replace `skills/subagent-driven-development/SKILL.md:419-435` with:
 - **Other harnesses:** use their normal general-purpose subagent mapping with `implementer-prompt.md`
 
 **Implementer required skills:**
-- **superpowers:behavior-guidelines** - REQUIRED
+- **swe-skills:behavior-guidelines** - REQUIRED
 - **superpowers:test-driven-development** - REQUIRED when implementing a feature, bugfix, refactor, or behavior change
 
 **Reviewer required skills:**
-- **superpowers:code-review-expert** - REQUIRED for code review subagents
+- **swe-skills:code-review-expert** - REQUIRED for code review subagents
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution

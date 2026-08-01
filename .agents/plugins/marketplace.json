@@ -6,9 +6,23 @@
   "plugins": [
     {
       "name": "superpowers",
+      "version": "6.1.1",
       "source": {
         "source": "url",
         "url": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "swe-skills",
+      "version": "6.1.1",
+      "source": {
+        "source": "url",
+        "url": "./plugins/swe-skills"
       },
       "policy": {
         "installation": "AVAILABLE",

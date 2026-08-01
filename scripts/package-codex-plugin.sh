@@ -16,6 +16,8 @@ REF="HEAD"
 OUTPUT=""
 FORMAT=""
 METADATA_SOURCE=""
+PLUGIN_ROOT="."
+PLUGIN_NAME=""
 ALLOW_DIRTY=0
 KEEP_STAGE=0
 
@@ -32,8 +34,11 @@ Options:
                            extension is used when --format is omitted.
   --metadata-source PATH   Prior official package directory, .zip, or .tar.gz used to
                            seed skills/*/agents/openai.yaml.
-                           Default: ../_tmp/sup-codex-packaging/superpowers,
-                           falling back to superpowers.zip, then superpowers.tar.gz
+                           Default: ../_tmp/sup-codex-packaging/<plugin-name>,
+                           falling back to matching zip/tar.gz archives.
+  --plugin-root PATH       Select the plugin source directory. Default: .
+  --plugin-name NAME       Select the output basename and diagnostics name.
+                           Default: superpowers for . or the plugin directory name.
   --ref REF                Git ref to package. Default: HEAD.
   --allow-dirty            Permit a dirty working tree. The archive still uses --ref.
   --keep-stage             Print and keep the temporary staging directory.
@@ -77,6 +82,16 @@ while [[ $# -gt 0 ]]; do
       METADATA_SOURCE="$2"
       shift 2
       ;;
+    --plugin-root)
+      [[ $# -ge 2 ]] || die "--plugin-root requires a path"
+      PLUGIN_ROOT="$2"
+      shift 2
+      ;;
+    --plugin-name)
+      [[ $# -ge 2 ]] || die "--plugin-name requires a value"
+      PLUGIN_NAME="$2"
+      shift 2
+      ;;
     --ref)
       [[ $# -ge 2 ]] || die "--ref requires a value"
       REF="$2"
@@ -101,6 +116,14 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$PLUGIN_ROOT" == "." || "$PLUGIN_ROOT" == "./" ]]; then
+  PLUGIN_ROOT="."
+  [[ -n "$PLUGIN_NAME" ]] || PLUGIN_NAME="superpowers"
+else
+  PLUGIN_ROOT="${PLUGIN_ROOT#./}"
+  [[ -n "$PLUGIN_NAME" ]] || PLUGIN_NAME="$(basename "$PLUGIN_ROOT")"
+fi
 
 infer_format_from_output() {
   local output_path="$1"
@@ -144,6 +167,11 @@ fi
 git -C "$REPO_ROOT" rev-parse --verify "$REF^{commit}" >/dev/null ||
   die "git ref does not resolve to a commit: $REF"
 
+PLUGIN_SOURCE="$REPO_ROOT/$PLUGIN_ROOT"
+[[ -d "$PLUGIN_SOURCE" ]] || die "plugin root does not exist: $PLUGIN_ROOT"
+[[ -f "$PLUGIN_SOURCE/.codex-plugin/plugin.json" ]] ||
+  die "Codex manifest missing under plugin root: $PLUGIN_ROOT/.codex-plugin/plugin.json"
+
 if [[ "$ALLOW_DIRTY" -ne 1 ]]; then
   dirty_status="$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all)"
   if [[ -n "$dirty_status" ]]; then
@@ -154,12 +182,13 @@ if [[ "$ALLOW_DIRTY" -ne 1 ]]; then
 fi
 
 if [[ -z "$METADATA_SOURCE" ]]; then
-  if [[ -d "$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers" ]]; then
-    METADATA_SOURCE="$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers"
-  elif [[ -f "$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers.zip" ]]; then
-    METADATA_SOURCE="$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers.zip"
-  elif [[ -f "$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers.tar.gz" ]]; then
-    METADATA_SOURCE="$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers.tar.gz"
+  metadata_base="$REPO_ROOT/../_tmp/sup-codex-packaging/$PLUGIN_NAME"
+  if [[ -d "$metadata_base" ]]; then
+    METADATA_SOURCE="$metadata_base"
+  elif [[ -f "$metadata_base.zip" ]]; then
+    METADATA_SOURCE="$metadata_base.zip"
+  elif [[ -f "$metadata_base.tar.gz" ]]; then
+    METADATA_SOURCE="$metadata_base.tar.gz"
   else
     die "no metadata source found; pass --metadata-source <prior package dir, zip, or tar.gz>"
   fi
@@ -230,25 +259,57 @@ prepare_metadata_root() {
 
 METADATA_ROOT="$(prepare_metadata_root "$METADATA_SOURCE")"
 
-git -C "$REPO_ROOT" archive --format=tar "$REF" -- \
-  .codex-plugin \
-  CODE_OF_CONDUCT.md \
-  LICENSE \
-  README.md \
-  assets \
-  skills \
-  | tar -xf - -C "$STAGE"
+ARCHIVE_SOURCE="$WORK_DIR/source"
+mkdir -p "$ARCHIVE_SOURCE"
+if [[ "$PLUGIN_ROOT" == "." ]]; then
+  git -C "$REPO_ROOT" archive --format=tar "$REF" -- \
+    .codex-plugin \
+    CODE_OF_CONDUCT.md \
+    LICENSE \
+    README.md \
+    assets \
+    skills \
+    | tar -xf - -C "$ARCHIVE_SOURCE"
+else
+  git -C "$REPO_ROOT" archive --format=tar "$REF" -- \
+    "$PLUGIN_ROOT/.codex-plugin" \
+    "$PLUGIN_ROOT/LICENSE" \
+    "$PLUGIN_ROOT/README.md" \
+    "$PLUGIN_ROOT/skills" \
+    | tar -xf - -C "$ARCHIVE_SOURCE"
+fi
+
+SOURCE_ROOT="$ARCHIVE_SOURCE"
+if [[ "$PLUGIN_ROOT" != "." ]]; then
+  SOURCE_ROOT="$ARCHIVE_SOURCE/$PLUGIN_ROOT"
+fi
+
+for source_path in .codex-plugin LICENSE README.md; do
+  if [[ -e "$SOURCE_ROOT/$source_path" ]]; then
+    cp -pR "$SOURCE_ROOT/$source_path" "$STAGE/"
+  fi
+done
+if [[ -d "$SOURCE_ROOT/assets" ]]; then
+  cp -pR "$SOURCE_ROOT/assets" "$STAGE/"
+fi
+if [[ -d "$SOURCE_ROOT/skills" ]]; then
+  cp -pR "$SOURCE_ROOT/skills" "$STAGE/"
+else
+  die "plugin root does not contain a skills directory: $PLUGIN_ROOT"
+fi
 
 VERSION="$(jq -r '.version // empty' "$STAGE/.codex-plugin/plugin.json")"
 [[ -n "$VERSION" ]] || die "could not read version from .codex-plugin/plugin.json"
+MANIFEST_NAME="$(jq -r '.name // empty' "$STAGE/.codex-plugin/plugin.json")"
+[[ -n "$MANIFEST_NAME" ]] || die "could not read name from .codex-plugin/plugin.json"
 
 if [[ -z "$OUTPUT" ]]; then
   case "$FORMAT" in
     zip)
-      OUTPUT="$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers-$VERSION.zip"
+      OUTPUT="$REPO_ROOT/../_tmp/sup-codex-packaging/$PLUGIN_NAME-$VERSION.zip"
       ;;
     tar.gz)
-      OUTPUT="$REPO_ROOT/../_tmp/sup-codex-packaging/superpowers-$VERSION.tar.gz"
+      OUTPUT="$REPO_ROOT/../_tmp/sup-codex-packaging/$PLUGIN_NAME-$VERSION.tar.gz"
       ;;
   esac
 fi

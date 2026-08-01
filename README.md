@@ -33,6 +33,8 @@ If you're using Superpowers in enterprise and could benefit from commercial supp
 
 Installation differs by harness. If you use more than one, install Superpowers separately for each one.
 
+Superpowers provides the core workflow and session bootstrap. Install the `swe-skills` companion plugin from the same marketplace or plugin manager when you need `behavior-guidelines`, `code-review-expert`, `design-an-interface`, `managing-skill-library`, and `self-evolved`. Full workflow behavior requires both plugins; `swe-skills` alone only exposes its five skills.
+
 ### Claude Code
 
 Superpowers is available via the [official Claude plugin marketplace](https://claude.com/plugins/superpowers)

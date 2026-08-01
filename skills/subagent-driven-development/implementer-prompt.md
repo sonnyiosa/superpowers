@@ -24,7 +24,7 @@ OpenCode subagent (`sp-implementer`) or Subagent (general-purpose):
 
     ## Before You Begin
 
-    Load behavior-guidelines skill.
+    Load swe-skills:behavior-guidelines skill.
 
     If you have questions about:
     - The requirements or acceptance criteria

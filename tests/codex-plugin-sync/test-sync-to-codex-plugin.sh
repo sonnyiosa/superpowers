@@ -311,6 +311,50 @@ EOF
     commit_fixture "$repo" "Initial upstream fixture"
 }
 
+write_nested_upstream_fixture() {
+    local repo="$1"
+
+    mkdir -p \
+        "$repo/plugins/swe-skills/.codex-plugin" \
+        "$repo/plugins/swe-skills/skills/example" \
+        "$repo/skills/core-only" \
+        "$repo/scripts"
+
+    cp "$SYNC_SCRIPT_SOURCE" "$repo/scripts/sync-to-codex-plugin.sh"
+
+    cat > "$repo/plugins/swe-skills/.codex-plugin/plugin.json" <<EOF
+{
+  "name": "swe-skills",
+  "version": "$MANIFEST_VERSION",
+  "skills": "./skills/",
+  "hooks": {}
+}
+EOF
+
+    printf 'companion readme\\n' > "$repo/plugins/swe-skills/README.md"
+    printf 'companion license\\n' > "$repo/plugins/swe-skills/LICENSE"
+    printf 'nested companion skill\\n' > "$repo/plugins/swe-skills/skills/example/SKILL.md"
+    printf 'core-only skill\\n' > "$repo/skills/core-only/SKILL.md"
+
+    git -C "$repo" add \
+        plugins/swe-skills/.codex-plugin/plugin.json \
+        plugins/swe-skills/README.md \
+        plugins/swe-skills/LICENSE \
+        plugins/swe-skills/skills/example/SKILL.md \
+        scripts/sync-to-codex-plugin.sh \
+        skills/core-only/SKILL.md
+    commit_fixture "$repo" "Initial nested companion upstream fixture"
+}
+
+write_nested_destination_fixture() {
+    local repo="$1"
+
+    mkdir -p "$repo/plugins/swe-skills/skills/example"
+    printf 'destination companion skill\\n' > "$repo/plugins/swe-skills/skills/example/SKILL.md"
+    git -C "$repo" add plugins/swe-skills/skills/example/SKILL.md
+    commit_fixture "$repo" "Initial nested companion destination fixture"
+}
+
 write_destination_fixture() {
     local repo="$1"
 
@@ -484,6 +528,15 @@ run_preview() {
     PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" 2>&1
 }
 
+run_nested_preview() {
+    local upstream="$1"
+    local dest="$2"
+    local fake_bin="$3"
+
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" \
+        --plugin-root plugins/swe-skills --dest-rel plugins/swe-skills 2>&1
+}
+
 run_bootstrap_preview() {
     local upstream="$1"
     local dest="$2"
@@ -535,8 +588,10 @@ write_bootstrap_destination_fixture() {
 
 main() {
     local upstream
+    local nested_upstream
     local mixed_only_upstream
     local dest
+    local nested_dest
     local dest_branch
     local mixed_only_dest
     local stale_dest
@@ -556,6 +611,9 @@ main() {
     local missing_manifest_output
     local mixed_only_status
     local mixed_only_output
+    local nested_status
+    local nested_output
+    local nested_section
     local stale_preview_status
     local stale_preview_output
     local stale_preview_section
@@ -574,8 +632,10 @@ main() {
     trap cleanup EXIT
 
     upstream="$TEST_ROOT/upstream"
+    nested_upstream="$TEST_ROOT/nested-upstream"
     mixed_only_upstream="$TEST_ROOT/mixed-only-upstream"
     dest="$TEST_ROOT/destination"
+    nested_dest="$TEST_ROOT/nested-destination"
     mixed_only_dest="$TEST_ROOT/mixed-only-destination"
     stale_dest="$TEST_ROOT/stale-destination"
     dirty_apply_dest="$TEST_ROOT/dirty-apply-destination"
@@ -590,6 +650,9 @@ main() {
     init_repo "$upstream"
     write_upstream_fixture "$upstream"
 
+    init_repo "$nested_upstream"
+    write_nested_upstream_fixture "$nested_upstream"
+
     init_repo "$mixed_only_upstream"
     write_upstream_fixture "$mixed_only_upstream" 0
 
@@ -598,6 +661,9 @@ main() {
     add_openai_agent_metadata_fixture "$dest"
     checkout_fixture_branch "$dest" "$dest_branch"
     dirty_tracked_destination_skill "$dest"
+
+    init_repo "$nested_dest"
+    write_nested_destination_fixture "$nested_dest"
 
     init_repo "$mixed_only_dest"
     write_destination_fixture "$mixed_only_dest"
@@ -625,6 +691,8 @@ main() {
     set +e
     preview_output="$(run_preview "$upstream" "$dest" "$fake_bin")"
     preview_status=$?
+    nested_output="$(run_nested_preview "$nested_upstream" "$nested_dest" "$fake_bin")"
+    nested_status=$?
     bootstrap_output="$(run_bootstrap_preview "$upstream" "$bootstrap_dest" "$fake_bin")"
     bootstrap_status=$?
     mixed_only_output="$(run_preview "$mixed_only_upstream" "$mixed_only_dest" "$fake_bin")"
@@ -641,6 +709,7 @@ main() {
     help_output="$(run_help "$upstream" "$fake_bin")"
     script_source="$(cat "$upstream/scripts/sync-to-codex-plugin.sh")"
     preview_section="$(printf '%s\n' "$preview_output" | sed -n '/^=== Preview (rsync --dry-run) ===$/,/^=== End preview ===$/p')"
+    nested_section="$(printf '%s\n' "$nested_output" | sed -n '/^=== Preview (rsync --dry-run) ===$/,/^=== End preview ===$/p')"
     stale_preview_section="$(printf '%s\n' "$stale_preview_output" | sed -n '/^=== Preview (rsync --dry-run) ===$/,/^=== End preview ===$/p')"
     dirty_skill_path="$dirty_apply_dest/plugins/superpowers/skills/example/SKILL.md"
     noop_openai_metadata_path="$noop_apply_dest/plugins/superpowers/skills/example/agents/openai.yaml"
@@ -670,6 +739,20 @@ main() {
     assert_not_matches "$preview_section" "\\*deleting +skills/example/agents/openai\\.yaml" "Preview preserves destination-owned OpenAI agent metadata"
     assert_current_branch "$dest" "$dest_branch" "Preview leaves destination checkout on its original branch"
     assert_branch_absent "$dest" "sync/superpowers-*" "Preview does not create sync branch in destination checkout"
+
+    echo ""
+    echo "Nested companion assertions..."
+    if [[ "$nested_status" -ne 0 ]]; then
+        printf '%s\n' "$nested_output" | sed 's/^/      /'
+    fi
+    assert_equals "$nested_status" "0" "Nested companion preview exits successfully"
+    assert_contains "$nested_output" "Version:  $MANIFEST_VERSION" "Nested preview uses companion manifest version"
+    assert_contains "$nested_section" ".codex-plugin/plugin.json" "Nested preview includes companion manifest"
+    assert_contains "$nested_section" "skills/example/SKILL.md" "Nested preview includes companion skill"
+    assert_not_contains "$nested_section" "core-only/SKILL.md" "Nested preview excludes root core skill"
+    assert_not_contains "$nested_section" "plugins/superpowers" "Nested preview does not target core destination"
+    assert_current_branch "$nested_dest" "main" "Nested preview leaves destination checkout on its original branch"
+    assert_branch_absent "$nested_dest" "sync/swe-skills-*" "Nested preview does not create companion sync branch"
 
     echo ""
     echo "Mixed-directory assertions..."
@@ -718,6 +801,8 @@ Locally modified fixture content." "Dirty local apply preserves tracked working-
     echo ""
     echo "Help assertions..."
     assert_not_contains "$help_output" "--assets-src" "Help omits --assets-src"
+    assert_contains "$help_output" "--plugin-root PATH" "Help documents nested plugin source"
+    assert_contains "$help_output" "--dest-rel PATH" "Help documents nested destination path"
 
     echo ""
     echo "Source assertions..."
