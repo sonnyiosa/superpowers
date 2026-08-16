@@ -1,6 +1,6 @@
 ---
 name: behavior-guidelines
-description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+description: Behavioral guidelines to reduce common LLM coding mistakes. Always load this skill when starting coding session. Use when creating spec/plan, writing or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
 license: MIT
 ---
 
@@ -68,6 +68,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Don't commit with user consent
 
-After creating specs or wrote plans. DO NOT automatically create commit. After self-review, Asking user for review and commit permission.  
-Otherwise don't do unless permission granted.
+Never create a commit automatically after writing specs or plans. Self-review first, then ask for user approval before committing.
 
+## 6. Simplified Technical English for output
+
+@./references/asd-ste100.md
