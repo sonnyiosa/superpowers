@@ -58,7 +58,7 @@ assert_equal(
 )
 assert_equal(
     swe_plugin.get("source"),
-    {"source": "url", "url": "./plugins/swe-skills"},
+    {"source": "local", "path": "./plugins/swe-skills"},
     "swe-skills plugin source",
 )
 assert_equal(

@@ -21,8 +21,8 @@
       "name": "swe-skills",
       "version": "6.1.1",
       "source": {
-        "source": "url",
-        "url": "./plugins/swe-skills"
+        "source": "local",
+        "path": "./plugins/swe-skills"
       },
       "policy": {
         "installation": "AVAILABLE",
