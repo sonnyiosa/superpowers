@@ -3,6 +3,7 @@ name: visual-planner
 description: Use this agent to transform implementation plans, specs, or documents into rich interactive HTML experiences — with live Mermaid diagrams, interactive decision cards, syntax-highlighted code, progress tracking, and timeline views — hosted locally and accessible via a browser link. Examples: <example>Context: User has a development plan markdown file they want to visualize and share. user: "Visualize my plan at /path/to/plan.md" assistant: "I'll use the visual-planner agent to transform your plan into a rich interactive HTML experience and give you a localhost link to share with your team." <commentary>The user wants a rich visual experience from their plan, not just a static HTML equivalent.</commentary></example> <example>Context: Team lead wants to share a plan with their team in a browsable format. user: "Turn this plan into something I can share with the team" assistant: "Let me use the visual-planner agent to generate an interactive visual plan and host it locally so you can share the link." <commentary>Sharing a localhost link is the target workflow for team collaboration on plans.</commentary></example>
 tools: Read, Grep, Glob, Bash, Edit
 model: haiku
+effort: high
 ---
 
 # Visual Planner Agent
