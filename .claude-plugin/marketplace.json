@@ -15,6 +15,25 @@
         "name": "Jesse Vincent",
         "email": "jesse@fsck.com"
       }
+    },
+    {
+      "name": "swe-skills",
+      "description": "Software engineering skills for code review, interface design, behavior guidelines, and skill-library management.",
+      "version": "6.1.1",
+      "source": "./plugins/swe-skills",
+      "author": {
+        "name": "Jesse Vincent",
+        "email": "me@sontieu.dev"
+      }
+    },
+    {
+      "name": "pstack",
+      "description": "if you want to go fast, go deep first. pstack helps you write less, but higher quality code. rigorous agent workflows you can parallelize with confidence.",
+      "version": "0.15.15",
+      "source": "./plugins/pstack",
+      "author": {
+        "name": "Lauren Tan"
+      }
     }
   ]
 }
