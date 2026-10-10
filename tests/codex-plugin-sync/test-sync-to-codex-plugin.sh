@@ -542,7 +542,7 @@ run_preview() {
     local dest="$2"
     local fake_bin="$3"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -n --local "$dest" 2>&1
 }
 
 run_nested_preview() {
@@ -550,7 +550,7 @@ run_nested_preview() {
     local dest="$2"
     local fake_bin="$3"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" \
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -n --local "$dest" \
         --plugin-root plugins/swe-skills --dest-rel plugins/swe-skills 2>&1
 }
 
@@ -559,7 +559,7 @@ run_bootstrap_preview() {
     local dest="$2"
     local fake_bin="$3"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --bootstrap --local "$dest" 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -n --bootstrap --local "$dest" 2>&1
 }
 
 run_preview_without_manifest() {
@@ -568,7 +568,7 @@ run_preview_without_manifest() {
     local fake_bin="$3"
 
     rm -f "$upstream/.codex-plugin/plugin.json"
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -n --local "$dest" 2>&1
 }
 
 run_preview_with_stale_ignored_destination() {
@@ -576,7 +576,7 @@ run_preview_with_stale_ignored_destination() {
     local dest="$2"
     local fake_bin="$3"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -n --local "$dest" 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -n --local "$dest" 2>&1
 }
 
 run_apply() {
@@ -584,14 +584,14 @@ run_apply() {
     local dest="$2"
     local fake_bin="$3"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" -y --local "$dest" 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . -y --repo test-owner/test-destination --local "$dest" 2>&1
 }
 
 run_help() {
     local upstream="$1"
     local fake_bin="$2"
 
-    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --help 2>&1
+    PATH="$fake_bin:$PATH" "$BASH_UNDER_TEST" "$upstream/scripts/sync-to-codex-plugin.sh" --plugin-root . --help 2>&1
 }
 
 write_bootstrap_destination_fixture() {

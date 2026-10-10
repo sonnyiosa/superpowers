@@ -2,7 +2,6 @@
 #
 # sync-to-codex-plugin.sh
 #
-# Sync this superpowers checkout → prime-radiant-inc/openai-codex-plugins.
 # Clones the fork fresh into a temp dir, rsyncs tracked upstream plugin content
 # (including committed Codex files under .codex-plugin/ and assets/), preserves
 # OpenAI-owned marketplace metadata already in the destination plugin, commits,
@@ -13,12 +12,12 @@
 # identical diffs, so two back-to-back runs can verify the tool itself.
 #
 # Usage:
-#   ./scripts/sync-to-codex-plugin.sh                              # full run
-#   ./scripts/sync-to-codex-plugin.sh -n                           # dry run
-#   ./scripts/sync-to-codex-plugin.sh -y                           # skip confirm
+#   ./scripts/sync-to-codex-plugin.sh --repo OWNER/REPO            # full run
+#   ./scripts/sync-to-codex-plugin.sh --local PATH -n              # dry run
+#   ./scripts/sync-to-codex-plugin.sh --repo OWNER/REPO -y          # skip confirm
 #   ./scripts/sync-to-codex-plugin.sh --local PATH                 # existing checkout
 #   ./scripts/sync-to-codex-plugin.sh --base BRANCH                # default: main
-#   ./scripts/sync-to-codex-plugin.sh --plugin-root PATH            # default: .
+#   ./scripts/sync-to-codex-plugin.sh --plugin-root PATH            # default: plugins/superpowers
 #   ./scripts/sync-to-codex-plugin.sh --dest-rel PATH              # default: plugins/superpowers
 #   ./scripts/sync-to-codex-plugin.sh --bootstrap                  # create plugin dir if missing
 #
@@ -34,10 +33,10 @@ set -euo pipefail
 # Config — edit as upstream or canonical plugin shape evolves
 # =============================================================================
 
-FORK="prime-radiant-inc/openai-codex-plugins"
+FORK=""
 DEFAULT_BASE="main"
 DEST_REL="plugins/superpowers"
-PLUGIN_ROOT="."
+PLUGIN_ROOT="plugins/superpowers"
 PLUGIN_NAME="superpowers"
 
 # Paths in upstream that should NOT land in the embedded plugin.
@@ -164,6 +163,7 @@ while [[ $# -gt 0 ]]; do
     -n|--dry-run)  DRY_RUN=1; shift ;;
     -y|--yes)      YES=1; shift ;;
     --local)       LOCAL_CHECKOUT="$2"; shift 2 ;;
+    --repo)        FORK="$2"; shift 2 ;;
     --base)        BASE="$2"; shift 2 ;;
     --plugin-root) PLUGIN_ROOT="$2"; shift 2 ;;
     --dest-rel)    DEST_REL="$2"; shift 2 ;;
@@ -187,6 +187,11 @@ UPSTREAM_PLUGIN_ROOT="$UPSTREAM/$PLUGIN_ROOT"
 # =============================================================================
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+[[ -n "$FORK" || -n "$LOCAL_CHECKOUT" ]] ||
+  die "choose a destination with --repo OWNER/REPO or --local PATH"
+[[ "$DRY_RUN" -eq 1 || -n "$FORK" ]] ||
+  die "publishing requires --repo OWNER/REPO"
 
 command -v rsync >/dev/null   || die "rsync not found in PATH"
 command -v git >/dev/null     || die "git not found in PATH"
@@ -219,7 +224,9 @@ if [[ "$UPSTREAM_BRANCH" != "main" ]]; then
 fi
 
 UPSTREAM_STATUS="$(cd "$UPSTREAM" && git status --porcelain)"
+SOURCE_STATE="clean"
 if [[ -n "$UPSTREAM_STATUS" ]]; then
+  SOURCE_STATE="uncommitted changes"
   echo "WARNING: upstream has uncommitted changes:"
   echo "$UPSTREAM_STATUS" | sed 's/^/  /'
   echo "Sync will use working-tree state, not HEAD ($UPSTREAM_SHORT)."
@@ -449,43 +456,55 @@ fi
 git add "$DEST_REL"
 
 if [[ $BOOTSTRAP -eq 1 ]]; then
-  COMMIT_TITLE="bootstrap superpowers v$UPSTREAM_VERSION from upstream main @ $UPSTREAM_SHORT"
-  PR_BODY="Initial bootstrap of the superpowers plugin from upstream \`main\` @ \`$UPSTREAM_SHORT\` (v$UPSTREAM_VERSION).
+  COMMIT_TITLE="bootstrap $PLUGIN_NAME v$UPSTREAM_VERSION from source $UPSTREAM_SHORT"
+  PR_BODY="Initial bootstrap of \`$PLUGIN_NAME\` from the source working tree (v$UPSTREAM_VERSION).
 
-Creates \`plugins/superpowers/\` by copying the tracked plugin files from upstream, including \`.codex-plugin/plugin.json\`, \`assets/\`, and \`hooks/\`.
+Source branch: \`$UPSTREAM_BRANCH\`
+Source HEAD: \`$UPSTREAM_SHA\`
+Source working tree: $SOURCE_STATE
+
+Creates \`$DEST_REL/\` from the selected source directory \`$PLUGIN_ROOT/\`.
 
 Run via: \`scripts/sync-to-codex-plugin.sh --bootstrap\`
-Upstream commit: https://github.com/obra/superpowers/commit/$UPSTREAM_SHA
 
-This is a one-time bootstrap. Subsequent syncs will be normal (non-bootstrap) runs using the same tracked upstream plugin files."
+Preserves existing OpenAI skill metadata in the destination."
 else
-  COMMIT_TITLE="sync superpowers v$UPSTREAM_VERSION from upstream main @ $UPSTREAM_SHORT"
-  PR_BODY="Automated sync from superpowers upstream \`main\` @ \`$UPSTREAM_SHORT\` (v$UPSTREAM_VERSION).
+  COMMIT_TITLE="sync $PLUGIN_NAME v$UPSTREAM_VERSION from source $UPSTREAM_SHORT"
+  PR_BODY="Syncs \`$PLUGIN_NAME\` from the source working tree (v$UPSTREAM_VERSION).
 
-Copies the tracked plugin files from upstream, including the committed Codex manifest, assets, and hooks.
+Source branch: \`$UPSTREAM_BRANCH\`
+Source HEAD: \`$UPSTREAM_SHA\`
+Source working tree: $SOURCE_STATE
+
+Copies the selected source directory \`$PLUGIN_ROOT/\` into \`$DEST_REL/\`.
 
 Run via: \`scripts/sync-to-codex-plugin.sh\`
-Upstream commit: https://github.com/obra/superpowers/commit/$UPSTREAM_SHA
 
-Running the sync tool again against the same upstream SHA should produce a PR with an identical diff — use that to verify the tool is behaving."
+Preserves existing OpenAI skill metadata in the destination."
 fi
 
 git commit --quiet -m "$COMMIT_TITLE
 
 Automated sync via scripts/sync-to-codex-plugin.sh
-Upstream: https://github.com/obra/superpowers/commit/$UPSTREAM_SHA
+Source directory: $PLUGIN_ROOT
+Source HEAD: $UPSTREAM_SHA
+Source branch: $UPSTREAM_BRANCH
+Source working tree: $SOURCE_STATE
 Branch:   $SYNC_BRANCH"
 
 echo "Pushing $SYNC_BRANCH to $FORK..."
 git push -u origin "$SYNC_BRANCH" --quiet
 
 echo "Opening PR..."
+[[ -n "$CLEANUP_DIR" ]] || CLEANUP_DIR="$(mktemp -d)"
+PR_BODY_FILE="$CLEANUP_DIR/pr-body.md"
+printf '%s\n' "$PR_BODY" > "$PR_BODY_FILE"
 PR_URL="$(gh pr create \
   --repo "$FORK" \
   --base "$BASE" \
   --head "$SYNC_BRANCH" \
   --title "$COMMIT_TITLE" \
-  --body "$PR_BODY")"
+  --body-file "$PR_BODY_FILE")"
 
 PR_NUM="${PR_URL##*/}"
 DIFF_URL="https://github.com/$FORK/pull/$PR_NUM/files"

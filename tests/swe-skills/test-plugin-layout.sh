@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PLUGIN_ROOT="$REPO_ROOT/plugins/swe-skills"
-CORE_VERSION_FILE="$REPO_ROOT/.codex-plugin/plugin.json"
+PLUGIN_VERSION_FILE="$PLUGIN_ROOT/.claude-plugin/plugin.json"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -30,7 +30,7 @@ expected_skills_text="$(printf '%s\n' "${expected_skills[@]}" | LC_ALL=C sort)"
 }
 
 for skill in "${expected_skills[@]}"; do
-  [[ ! -e "$REPO_ROOT/skills/$skill" ]] || fail "moved skill remains in core: skills/$skill"
+  [[ ! -e "$REPO_ROOT/plugins/superpowers/skills/$skill" ]] || fail "moved skill remains in core: skills/$skill"
   [[ -f "$PLUGIN_ROOT/skills/$skill/SKILL.md" ]] || fail "missing companion skill: $skill/SKILL.md"
 done
 
@@ -44,15 +44,15 @@ done
 [[ ! -e "$PLUGIN_ROOT/.pi/extensions" ]] || fail "companion plugin contains a Pi bootstrap extension"
 [[ ! -e "$PLUGIN_ROOT/.opencode/plugins/superpowers.js" ]] || fail "companion plugin contains core OpenCode bootstrap"
 
-python3 - "$REPO_ROOT" "$PLUGIN_ROOT" "$CORE_VERSION_FILE" <<'PY'
+python3 - "$REPO_ROOT" "$PLUGIN_ROOT" "$PLUGIN_VERSION_FILE" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 repo_root = Path(sys.argv[1])
 plugin_root = Path(sys.argv[2])
-core_manifest = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
-core_version = core_manifest["version"]
+plugin_manifest = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+plugin_version = plugin_manifest["version"]
 
 manifest_paths = [
     plugin_root / ".claude-plugin/plugin.json",
@@ -68,8 +68,8 @@ for path in manifest_paths:
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("name") != "swe-skills":
         raise AssertionError(f"{path}: expected name swe-skills")
-    if manifest.get("version") != core_version:
-        raise AssertionError(f"{path}: expected version {core_version!r}, got {manifest.get('version')!r}")
+    if manifest.get("version") != plugin_version:
+        raise AssertionError(f"{path}: expected version {plugin_version!r}, got {manifest.get('version')!r}")
     if "skills" in manifest and manifest["skills"] != "./skills/":
         raise AssertionError(f"{path}: expected skills path ./skills/")
 
@@ -85,8 +85,8 @@ for field in ("sessionStart", "skillInstructions"):
 package = json.loads((plugin_root / "package.json").read_text(encoding="utf-8"))
 if package.get("name") != "swe-skills":
     raise AssertionError("companion package must be named swe-skills")
-if package.get("version") != core_version:
-    raise AssertionError("companion package version must match core version")
+if package.get("version") != plugin_version:
+    raise AssertionError("companion package version must match its plugin manifest")
 if package.get("main") != ".opencode/plugins/swe-skills.js":
     raise AssertionError("companion package must expose its OpenCode entry point")
 if package.get("pi", {}).get("skills") != ["./skills"]:

@@ -1,16 +1,15 @@
 {
-  "name": "superpowers-dev",
-  "description": "Development marketplace for Superpowers core skills library",
+  "name": "sonny-skills",
+  "description": "Sonny's personal plugin collection for Muse.",
   "owner": {
-    "name": "Jesse Vincent",
-    "email": "jesse@fsck.com"
+    "name": "Sonny"
   },
   "plugins": [
     {
       "name": "superpowers",
       "description": "Core skills library for Muse: TDD, debugging, collaboration patterns, and proven techniques",
       "version": "7.0.0",
-      "source": "./",
+      "source": "./plugins/superpowers",
       "author": {
         "name": "Jesse Vincent",
         "email": "jesse@fsck.com"

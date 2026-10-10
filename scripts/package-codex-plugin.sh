@@ -16,7 +16,7 @@ REF="HEAD"
 OUTPUT=""
 FORMAT=""
 METADATA_SOURCE=""
-PLUGIN_ROOT="."
+PLUGIN_ROOT="plugins/superpowers"
 PLUGIN_NAME=""
 ALLOW_DIRTY=0
 KEEP_STAGE=0
@@ -36,7 +36,7 @@ Options:
                            seed skills/*/agents/openai.yaml.
                            Default: ../_tmp/sup-codex-packaging/<plugin-name>,
                            falling back to matching zip/tar.gz archives.
-  --plugin-root PATH       Select the plugin source directory. Default: .
+  --plugin-root PATH       Select the plugin source directory. Default: plugins/superpowers.
   --plugin-name NAME       Select the output basename and diagnostics name.
                            Default: superpowers for . or the plugin directory name.
   --ref REF                Git ref to package. Default: HEAD.
@@ -167,10 +167,10 @@ fi
 git -C "$REPO_ROOT" rev-parse --verify "$REF^{commit}" >/dev/null ||
   die "git ref does not resolve to a commit: $REF"
 
-PLUGIN_SOURCE="$REPO_ROOT/$PLUGIN_ROOT"
-[[ -d "$PLUGIN_SOURCE" ]] || die "plugin root does not exist: $PLUGIN_ROOT"
-[[ -f "$PLUGIN_SOURCE/.codex-plugin/plugin.json" ]] ||
-  die "Codex manifest missing under plugin root: $PLUGIN_ROOT/.codex-plugin/plugin.json"
+PLUGIN_PREFIX=""
+[[ "$PLUGIN_ROOT" == "." ]] || PLUGIN_PREFIX="$PLUGIN_ROOT/"
+git -C "$REPO_ROOT" cat-file -e "$REF:${PLUGIN_PREFIX}.codex-plugin/plugin.json" 2>/dev/null ||
+  die "Codex manifest missing at ref $REF: ${PLUGIN_PREFIX}.codex-plugin/plugin.json"
 
 if [[ "$ALLOW_DIRTY" -ne 1 ]]; then
   dirty_status="$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all)"
@@ -263,23 +263,15 @@ ARCHIVE_SOURCE="$WORK_DIR/source"
 mkdir -p "$ARCHIVE_SOURCE"
 # Pin tar.umask and extract with -p so staged modes are canonical 755/644
 # regardless of the builder's git config or process umask.
-if [[ "$PLUGIN_ROOT" == "." ]]; then
-  git -C "$REPO_ROOT" -c tar.umask=0022 archive --format=tar "$REF" -- \
-    .codex-plugin \
-    CODE_OF_CONDUCT.md \
-    LICENSE \
-    README.md \
-    assets \
-    skills \
-    | tar -xpf - -C "$ARCHIVE_SOURCE"
-else
-  git -C "$REPO_ROOT" -c tar.umask=0022 archive --format=tar "$REF" -- \
-    "$PLUGIN_ROOT/.codex-plugin" \
-    "$PLUGIN_ROOT/LICENSE" \
-    "$PLUGIN_ROOT/README.md" \
-    "$PLUGIN_ROOT/skills" \
-    | tar -xpf - -C "$ARCHIVE_SOURCE"
-fi
+PAYLOAD_PATHS=()
+for payload_path in .codex-plugin CODE_OF_CONDUCT.md LICENSE README.md assets skills; do
+  candidate="${PLUGIN_PREFIX}${payload_path}"
+  if git -C "$REPO_ROOT" cat-file -e "$REF:$candidate" 2>/dev/null; then
+    PAYLOAD_PATHS+=("$candidate")
+  fi
+done
+git -C "$REPO_ROOT" -c tar.umask=0022 archive --format=tar "$REF" -- \
+  "${PAYLOAD_PATHS[@]}" | tar -xpf - -C "$ARCHIVE_SOURCE"
 
 SOURCE_ROOT="$ARCHIVE_SOURCE"
 if [[ "$PLUGIN_ROOT" != "." ]]; then
@@ -357,7 +349,7 @@ case "$FORMAT" in
     (
       cd "$STAGE"
       rm -f "$OUTPUT"
-      COPYFILE_DISABLE=1 zip -X -q - -@ <"$ARCHIVE_LIST" >"$OUTPUT"
+      TZ=UTC COPYFILE_DISABLE=1 zip -X -q - -@ <"$ARCHIVE_LIST" >"$OUTPUT"
     )
     ;;
   tar.gz)

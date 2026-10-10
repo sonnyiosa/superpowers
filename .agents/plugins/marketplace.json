@@ -1,15 +1,15 @@
 {
-  "name": "superpowers-dev",
+  "name": "sonny-skills",
   "interface": {
-    "displayName": "Superpowers Dev"
+    "displayName": "Sonny Skills"
   },
   "plugins": [
     {
       "name": "superpowers",
-      "version": "6.1.1",
+      "version": "7.0.0",
       "source": {
-        "source": "url",
-        "url": "./"
+        "source": "local",
+        "path": "./plugins/superpowers"
       },
       "policy": {
         "installation": "AVAILABLE",

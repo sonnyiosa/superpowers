@@ -17,8 +17,3 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
-
-# Local agent runs and editor history
-.audit/
-.codegraph/
-.history/

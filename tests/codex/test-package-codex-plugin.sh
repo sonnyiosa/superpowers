@@ -133,22 +133,22 @@ EOF
 }
 
 write_metadata_fixture() {
-  write_metadata_fixture_for_root "$1" "$REPO_ROOT"
+  write_metadata_fixture_for_root "$1" "$REPO_ROOT/plugins/superpowers"
 }
 
 echo "Codex package archive tests"
 
-snapshot_index="$TEST_ROOT/package-index"
-cp "$REPO_ROOT/.git/index" "$snapshot_index"
-GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" add -A -- \
-  .codex-plugin \
-  LICENSE \
-  README.md \
-  assets \
-  skills \
-  plugins/swe-skills
-snapshot_tree="$(GIT_INDEX_FILE="$snapshot_index" git -C "$REPO_ROOT" write-tree)"
-snapshot_commit="$(printf 'temporary package snapshot\\n' | git -C "$REPO_ROOT" commit-tree "$snapshot_tree" -p HEAD)"
+SOURCE_REPO="$REPO_ROOT"
+REPO_ROOT="$TEST_ROOT/source-repo"
+mkdir -p "$REPO_ROOT/scripts" "$REPO_ROOT/plugins"
+cp "$SCRIPT_UNDER_TEST" "$REPO_ROOT/scripts/"
+cp "$SOURCE_REPO/README.md" "$REPO_ROOT/"
+cp -R "$SOURCE_REPO/plugins/superpowers" "$SOURCE_REPO/plugins/swe-skills" "$REPO_ROOT/plugins/"
+SCRIPT_UNDER_TEST="$REPO_ROOT/scripts/package-codex-plugin.sh"
+git init -q "$REPO_ROOT"
+git -C "$REPO_ROOT" add .
+git -C "$REPO_ROOT" -c user.name='Test Bot' -c user.email='test@example.com' commit -q -m 'Nested plugin fixture'
+snapshot_commit="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
 metadata_source="$TEST_ROOT/metadata-source"
 archive="$TEST_ROOT/superpowers"
@@ -157,10 +157,10 @@ extracted="$TEST_ROOT/extracted"
 tar_extracted="$TEST_ROOT/tar-extracted"
 write_metadata_fixture "$metadata_source"
 
-source_hooks="$(python3 -c 'import json; print(json.load(open("'"$REPO_ROOT"'/.codex-plugin/plugin.json")).get("hooks"))')"
+source_hooks="$(python3 -c 'import json; print(json.load(open("'"$REPO_ROOT"'/plugins/superpowers/.codex-plugin/plugin.json")).get("hooks"))')"
 assert_equals "$source_hooks" "{}" "source Codex manifest suppresses local hook auto-discovery"
 
-if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --output "$archive" 2>&1)"; then
+if output="$(TZ=Pacific/Honolulu "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --output "$archive" 2>&1)"; then
   pass "package script exits successfully"
 else
   fail "package script exits successfully"
@@ -185,11 +185,12 @@ assert_not_matches "$archive_paths" "$unexpected_pattern" "archive excludes sour
 assert_contains "$archive_paths" ".codex-plugin/plugin.json" "archive includes Codex manifest"
 assert_contains "$archive_paths" "skills/brainstorming/SKILL.md" "archive includes skills"
 assert_contains "$archive_paths" "skills/brainstorming/agents/openai.yaml" "archive includes OpenAI skill metadata"
+assert_contains "$archive_paths" "CODE_OF_CONDUCT.md" "archive includes plugin code of conduct"
 assert_contains "$archive_paths" "assets/app-icon.png" "archive includes app icon"
 assert_contains "$archive_paths" "assets/superpowers-small.svg" "archive includes composer icon"
 
 manifest_summary="$(read_archive_file "$archive" .codex-plugin/plugin.json | python3 -c 'import json,sys; data=json.load(sys.stdin); print("\t".join([data["name"], data["version"], data["skills"], str(data.get("hooks"))]))')"
-expected_version="$(python3 -c 'import json; print(json.load(open("'"$REPO_ROOT"'/.codex-plugin/plugin.json"))["version"])')"
+expected_version="$(python3 -c 'import json; print(json.load(open("'"$REPO_ROOT"'/plugins/superpowers/.codex-plugin/plugin.json"))["version"])')"
 assert_equals "$manifest_summary" "superpowers	$expected_version	./skills/	$source_hooks" "archive manifest preserves source hooks"
 
 skill_count="$(find "$extracted/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
@@ -212,7 +213,7 @@ PY
 )"
 assert_equals "$zip_times" "(1980, 1, 1, 0, 0, 0)" "zip archive normalizes entry timestamps"
 
-if tar_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --format tar.gz --output "$tar_archive" 2>&1)"; then
+if tar_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_source" --format tar.gz --output "$tar_archive" 2>&1)"; then
   pass "package script writes explicit tar.gz archive"
 else
   fail "package script writes explicit tar.gz archive"
@@ -245,7 +246,7 @@ archive_from_zip_source="$TEST_ROOT/superpowers-from-zip-source.zip"
   zip -X -q -r "$metadata_zip" .
 )
 
-if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_archive" --output "$archive_from_tar_source" 2>&1)"; then
+if output="$("$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_archive" --output "$archive_from_tar_source" 2>&1)"; then
   pass "package script accepts tarball metadata source"
 else
   fail "package script accepts tarball metadata source"
@@ -258,7 +259,7 @@ else
   fail "tarball metadata source produces identical archive"
 fi
 
-if output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_zip" --output "$archive_from_zip_source" 2>&1)"; then
+if output="$("$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$metadata_zip" --output "$archive_from_zip_source" 2>&1)"; then
   pass "package script accepts zip metadata source"
 else
   fail "package script accepts zip metadata source"
@@ -277,7 +278,7 @@ cp "$metadata_source/skills/brainstorming/agents/openai.yaml" \
   "$incomplete_metadata/skills/brainstorming/agents/openai.yaml"
 
 set +e
-missing_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$incomplete_metadata" --output "$TEST_ROOT/missing.tar.gz" 2>&1)"
+missing_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" --metadata-source "$incomplete_metadata" --output "$TEST_ROOT/missing.tar.gz" 2>&1)"
 missing_status=$?
 set -e
 if [[ "$missing_status" -ne 0 ]]; then
@@ -293,7 +294,7 @@ swe_extracted="$TEST_ROOT/swe-extracted"
 write_metadata_fixture_for_root "$swe_metadata_source" "$REPO_ROOT/plugins/swe-skills"
 
 set +e
-swe_output="$(GIT_INDEX_FILE="$snapshot_index" "$SCRIPT_UNDER_TEST" \
+swe_output="$("$SCRIPT_UNDER_TEST" \
   --plugin-root plugins/swe-skills \
   --plugin-name swe-skills \
   --allow-dirty \
@@ -326,6 +327,21 @@ if [[ -f "$swe_archive" ]]; then
 else
   fail "companion package script writes archive"
 fi
+
+mv "$REPO_ROOT/plugins/superpowers" "$REPO_ROOT/plugins/superpowers-working"
+if ref_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --ref "$snapshot_commit" \
+  --metadata-source "$metadata_source" --output "$TEST_ROOT/selected-ref.zip" 2>&1)"; then
+  pass "package script reads the selected ref when checkout plugin files are absent"
+  if cmp -s "$archive" "$TEST_ROOT/selected-ref.zip"; then
+    pass "checkout changes do not change the selected-ref archive"
+  else
+    fail "checkout changes do not change the selected-ref archive"
+  fi
+else
+  fail "package script reads the selected ref when checkout plugin files are absent"
+  printf '%s\n' "$ref_output"
+fi
+mv "$REPO_ROOT/plugins/superpowers-working" "$REPO_ROOT/plugins/superpowers"
 
 dirty_repo="$TEST_ROOT/dirty-repo"
 git clone -q --no-local "$REPO_ROOT" "$dirty_repo"
